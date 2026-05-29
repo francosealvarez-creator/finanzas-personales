@@ -349,25 +349,26 @@ function buildForm(type, editId){
       <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn-primary" onclick="saveIngreso()">Guardar</button>
     </div>`;
-  if(type==='tarjeta') return `
-    <div class="field"><label>DESCRIPCIÓN</label><input id="t-desc" placeholder="Ej: TV Samsung"></div>
+  if(type==='tarjeta'){
+    const g=editId ? data.gastosTarjeta.find(x=>x.id===editId) : null;
+    const pagadas=g ? g.cuotaActual-1 : 0;
+    return `
+    <div class="field"><label>DESCRIPCIÓN</label><input id="t-desc" placeholder="Ej: Lentes, Vacaciones…" value="${g?g.descripcion:''}"></div>
     <div class="grid2">
-      <div class="field"><label>MONTO TOTAL ($)</label><input id="t-monto" type="number" placeholder="0" oninput="updateCuotaHint()"></div>
-      <div class="field"><label>CUOTAS</label>
-        <select id="t-cuotas" onchange="updateCuotaHint()">
-          ${[1,2,3,6,9,12,18,24].map(n=>`<option value="${n}">${n}x</option>`).join('')}
-        </select>
-      </div>
+      <div class="field"><label>MONTO TOTAL ($)</label><input id="t-monto" type="number" placeholder="0" value="${g?g.monto:''}" oninput="updateCuotaHint()"></div>
+      <div class="field"><label>CUOTAS TOTALES</label><input id="t-cuotas" type="number" min="1" placeholder="12" value="${g?g.cuotas:''}" oninput="updateCuotaHint()"></div>
     </div>
+    <div class="field"><label>CUOTAS YA PAGADAS</label><input id="t-pagadas" type="number" min="0" placeholder="0" value="${pagadas}"></div>
     <div class="grid2">
-      <div class="field"><label>FECHA</label><input id="t-fecha" type="date" value="${today}"></div>
-      <div class="field"><label>CATEGORÍA</label><select id="t-cat">${catOptions('tecnologia')}</select></div>
+      <div class="field"><label>FECHA</label><input id="t-fecha" type="date" value="${g?g.fecha:today}"></div>
+      <div class="field"><label>CATEGORÍA</label><select id="t-cat">${catOptions(g?g.categoria:'tecnologia')}</select></div>
     </div>
     <div id="cuota-hint"></div>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn-primary" onclick="saveTarjeta()">Guardar</button>
+      <button class="btn-primary" onclick="saveTarjeta('${editId||''}')">Guardar</button>
     </div>`;
+  }
 }
 
 function updateCuotaHint(){
@@ -392,11 +393,22 @@ function saveDiario(){
   data.gastosDiarios.push({id:genId(),descripcion:d,monto:m,categoria:document.getElementById('d-cat').value,fecha:document.getElementById('d-fecha').value});
   save(); closeModal(); renderAll();
 }
-function saveTarjeta(){
+function saveTarjeta(editId){
   const d=document.getElementById('t-desc').value.trim();
   const m=+document.getElementById('t-monto').value;
+  const cuotas=Math.max(1,+document.getElementById('t-cuotas').value||1);
+  const pagadas=Math.min(Math.max(0,+document.getElementById('t-pagadas').value||0),cuotas);
   if(!d||!m) return;
-  data.gastosTarjeta.push({id:genId(),descripcion:d,monto:m,categoria:document.getElementById('t-cat').value,cuotas:+document.getElementById('t-cuotas').value,cuotaActual:1,fecha:document.getElementById('t-fecha').value});
+  if(pagadas>=cuotas){
+    if(editId) data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==editId);
+    save(); closeModal(); renderAll(); return;
+  }
+  if(editId){
+    const g=data.gastosTarjeta.find(x=>x.id===editId);
+    if(g){ g.descripcion=d; g.monto=m; g.cuotas=cuotas; g.cuotaActual=pagadas+1; g.categoria=document.getElementById('t-cat').value; g.fecha=document.getElementById('t-fecha').value; }
+  } else {
+    data.gastosTarjeta.push({id:genId(),descripcion:d,monto:m,categoria:document.getElementById('t-cat').value,cuotas,cuotaActual:pagadas+1,fecha:document.getElementById('t-fecha').value});
+  }
   save(); closeModal(); renderAll();
 }
 
@@ -408,19 +420,6 @@ function toggleFijo(id){
 function deleteFijo(id){ data.gastosFijos=data.gastosFijos.filter(x=>x.id!==id); save(); renderAll(); }
 function deleteDiario(id){ data.gastosDiarios=data.gastosDiarios.filter(x=>x.id!==id); save(); renderAll(); }
 function deleteTarjeta(id){ data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id); save(); renderAll(); }
-function pagarCuota(id){
-  const g=data.gastosTarjeta.find(x=>x.id===id);
-  if(!g) return;
-  g.cuotaActual++;
-  if(g.cuotaActual>g.cuotas){ data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id); }
-  save(); renderAll();
-}
-function despagarCuota(id){
-  const g=data.gastosTarjeta.find(x=>x.id===id);
-  if(!g||g.cuotaActual<=1) return;
-  g.cuotaActual--;
-  save(); renderAll();
-}
 function saveIngreso(){
   const d=document.getElementById('i-desc').value.trim();
   const m=+document.getElementById('i-monto').value;
@@ -546,12 +545,11 @@ function renderTarjeta(){
           <div style="font-size:12px;color:var(--accent2);font-weight:500">${pesos(cuotaAmt)}/mes</div>
           <div style="font-size:10px;color:var(--muted)">${restante} cuota${restante!==1?'s':''} restante${restante!==1?'s':''}</div>
         </div>
+        <button class="btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openModal('tarjeta','${g.id}')">editar</button>
         <button class="row-del" onclick="deleteTarjeta('${g.id}')">✕</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <button onclick="despagarCuota('${g.id}')" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:0 6px;font-size:13px;line-height:18px;flex-shrink:0">−</button>
         <div class="cuota-bar"><div class="cuota-fill" style="width:${prog}%"></div></div>
-        <button onclick="pagarCuota('${g.id}')" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:0 6px;font-size:13px;line-height:18px;flex-shrink:0">+</button>
         <span style="font-size:9px;color:var(--muted);white-space:nowrap">${pagadas}/${g.cuotas} pag.</span>
       </div>
     </div>`;
