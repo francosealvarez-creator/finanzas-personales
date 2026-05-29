@@ -136,6 +136,7 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
   <button class="tab" onclick="showTab('fijos',this)">🏠 Gastos Fijos</button>
   <button class="tab" onclick="showTab('diarios',this)">📝 Registro Diario</button>
   <button class="tab" onclick="showTab('tarjeta',this)">💳 Tarjeta</button>
+  <button class="tab" onclick="showTab('ingresos',this)">💰 Ingresos</button>
 </nav>
 
 <main>
@@ -206,6 +207,18 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
   <div id="tarjeta-list"></div>
 </div>
 
+<!-- INGRESOS -->
+<div class="panel" id="tab-ingresos">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Ingresos</div>
+      <div class="section-sub" id="ingresos-sub">—</div>
+    </div>
+    <button class="btn-primary" onclick="openModal('ingreso')">+ Agregar</button>
+  </div>
+  <div id="ingresos-list"></div>
+</div>
+
 </main>
 
 <!-- MODAL -->
@@ -235,10 +248,20 @@ const CATS = [
 const catMap = {};
 CATS.forEach(c => catMap[c.id] = c);
 
+const FUENTES = [
+  {id:'sueldo',       label:'Sueldo',       emoji:'💼'},
+  {id:'freelance',    label:'Freelance',    emoji:'🧑‍💻'},
+  {id:'bono',         label:'Bono',         emoji:'🎁'},
+  {id:'transferencia',label:'Transferencia',emoji:'💸'},
+  {id:'otros',        label:'Otros',        emoji:'💰'},
+];
+const fuenteMap = {};
+FUENTES.forEach(f => fuenteMap[f.id] = f);
+
 function cat(id){ return catMap[id] || catMap['otros']; }
 
 const KEY = 'finanzas_v2';
-let data = {gastosFijos:[], gastosDiarios:[], gastosTarjeta:[], ingresoMensual:0};
+let data = {gastosFijos:[], gastosDiarios:[], gastosTarjeta:[], ingresosRegistrados:[], ingresoMensual:0};
 let currentMonth = new Date().toISOString().slice(0,7); // "YYYY-MM"
 let pieChart = null, barChart = null;
 
@@ -274,7 +297,7 @@ let modalType='';
 function openModal(type, editId){
   modalType=type; 
   const m=document.getElementById('modal');
-  const titles={fijo:'Nuevo gasto fijo',diario:'Nuevo gasto',tarjeta:'Nueva compra en tarjeta'};
+  const titles={fijo:'Nuevo gasto fijo',diario:'Nuevo gasto',tarjeta:'Nueva compra en tarjeta',ingreso:'Nuevo ingreso'};
   document.getElementById('modal-title').textContent = editId ? 'Editar' : titles[type];
   document.getElementById('modal-body').innerHTML = buildForm(type, editId);
   m.style.display='flex';
@@ -310,6 +333,21 @@ function buildForm(type, editId){
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn-primary" onclick="saveDiario()">Guardar</button>
+    </div>`;
+  if(type==='ingreso') return `
+    <div class="field"><label>DESCRIPCIÓN</label><input id="i-desc" placeholder="Ej: Sueldo, Pago freelance…"></div>
+    <div class="grid2">
+      <div class="field"><label>MONTO ($)</label><input id="i-monto" type="number" placeholder="0"></div>
+      <div class="field"><label>FECHA</label><input id="i-fecha" type="date" value="${today}"></div>
+    </div>
+    <div class="field"><label>ORIGEN</label>
+      <select id="i-fuente">
+        ${FUENTES.map(f=>`<option value="${f.id}">${f.emoji} ${f.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveIngreso()">Guardar</button>
     </div>`;
   if(type==='tarjeta') return `
     <div class="field"><label>DESCRIPCIÓN</label><input id="t-desc" placeholder="Ej: TV Samsung"></div>
@@ -370,6 +408,14 @@ function toggleFijo(id){
 function deleteFijo(id){ data.gastosFijos=data.gastosFijos.filter(x=>x.id!==id); save(); renderAll(); }
 function deleteDiario(id){ data.gastosDiarios=data.gastosDiarios.filter(x=>x.id!==id); save(); renderAll(); }
 function deleteTarjeta(id){ data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id); save(); renderAll(); }
+function saveIngreso(){
+  const d=document.getElementById('i-desc').value.trim();
+  const m=+document.getElementById('i-monto').value;
+  if(!d||!m) return;
+  data.ingresosRegistrados.push({id:genId(),descripcion:d,monto:m,fuente:document.getElementById('i-fuente').value,fecha:document.getElementById('i-fecha').value});
+  save(); closeModal(); renderAll();
+}
+function deleteIngreso(id){ data.ingresosRegistrados=data.ingresosRegistrados.filter(x=>x.id!==id); save(); renderAll(); }
 
 function toggleDate(id){
   const body=document.getElementById('dg-'+id);
@@ -386,6 +432,7 @@ function renderAll(){
   renderFijos();
   renderDiarios();
   renderTarjeta();
+  renderIngresos();
   renderDashboard();
 }
 
@@ -495,19 +542,66 @@ function renderTarjeta(){
   }).join('');
 }
 
+function renderIngresos(){
+  const mes=(data.ingresosRegistrados||[]).filter(g=>g.fecha.startsWith(currentMonth));
+  const total=mes.reduce((a,g)=>a+g.monto,0);
+  document.getElementById('ingresos-sub').textContent=`Total ${monthLabel(currentMonth)}: ${pesos(total)}`;
+
+  const grouped={};
+  mes.forEach(g=>{ if(!grouped[g.fecha]) grouped[g.fecha]=[]; grouped[g.fecha].push(g); });
+  const dates=Object.keys(grouped).sort((a,b)=>b.localeCompare(a));
+
+  const el=document.getElementById('ingresos-list');
+  if(!dates.length){ el.innerHTML='<div class="empty"><p>Sin ingresos este mes.</p><p>Registrá tus entradas de dinero.</p></div>'; return; }
+
+  el.innerHTML=dates.map(date=>{
+    const items=grouped[date];
+    const dayTotal=items.reduce((a,g)=>a+g.monto,0);
+    const dLabel=new Date(date+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+    const safeId='i'+date.replace(/-/g,'');
+    return `<div class="date-group">
+      <div class="date-hdr" onclick="toggleDate('${safeId}')">
+        <div>
+          <div style="font-size:12px;text-transform:capitalize">${dLabel}</div>
+          <div style="font-size:10px;color:var(--muted)">${items.length} ingreso${items.length!==1?'s':''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:var(--accent2);font-weight:500">+${pesos(dayTotal)}</span>
+          <span id="di-${safeId}" style="color:var(--muted)">⌄</span>
+        </div>
+      </div>
+      <div class="date-body" id="dg-${safeId}">
+        ${items.map(g=>{
+          const f=fuenteMap[g.fuente]||fuenteMap['otros'];
+          return `<div class="day-item">
+            <span class="cat-emoji">${f.emoji}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px">${g.descripcion}</div>
+              <div style="font-size:10px;color:var(--muted)">${f.label}</div>
+            </div>
+            <span style="font-size:12px;color:var(--accent2);white-space:nowrap">+${pesos(g.monto)}</span>
+            <button class="row-del" onclick="deleteIngreso('${g.id}')">✕</button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function renderDashboard(){
   const fijosTotal=data.gastosFijos.reduce((a,g)=>a+g.monto,0);
   const diariosTotal=data.gastosDiarios.filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
   const tarjetaTotal=data.gastosTarjeta.reduce((a,g)=>a+g.monto/g.cuotas,0);
   const totalGastos=fijosTotal+diariosTotal+tarjetaTotal;
-  const saldo=data.ingresoMensual-totalGastos;
-  const pct=data.ingresoMensual?(totalGastos/data.ingresoMensual*100).toFixed(0)+'%':'—';
+  const ingresosTotal=(data.ingresosRegistrados||[]).filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
+  const saldo=ingresosTotal-totalGastos;
+  const pct=ingresosTotal?(totalGastos/ingresosTotal*100).toFixed(0)+'%':'—';
 
   // Cards
   document.getElementById('dashboard-cards').innerHTML=`
     <div class="stat-card">
       <div class="stat-label">INGRESO</div>
-      <div class="stat-value editable" style="color:var(--accent2)" onclick="editIngreso()" title="Click para editar">${pesos(data.ingresoMensual)}</div>
+      <div class="stat-value" style="color:var(--accent2)">${pesos(ingresosTotal)}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">TOTAL GASTOS</div>
