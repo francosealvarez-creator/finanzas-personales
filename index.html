@@ -589,7 +589,7 @@ function renderIngresos(){
 }
 
 function renderDashboard(){
-  const fijosTotal=data.gastosFijos.reduce((a,g)=>a+g.monto,0);
+  const fijosTotal=data.gastosFijos.filter(g=>g.pagado).reduce((a,g)=>a+g.monto,0);
   const diariosTotal=data.gastosDiarios.filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
   const tarjetaTotal=data.gastosTarjeta.reduce((a,g)=>a+g.monto/g.cuotas,0);
   const totalGastos=fijosTotal+diariosTotal+tarjetaTotal;
