@@ -423,6 +423,8 @@ function deleteTarjeta(id){ data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id
 function pagarCuota(id){
   const g=data.gastosTarjeta.find(x=>x.id===id);
   if(!g) return;
+  if(g.ultimoPago===currentMonth) return;
+  g.ultimoPago=currentMonth;
   g.cuotaActual++;
   if(g.cuotaActual>g.cuotas) data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id);
   save(); renderAll();
@@ -558,7 +560,7 @@ function renderTarjeta(){
       <div style="display:flex;align-items:center;gap:8px">
         <div class="cuota-bar"><div class="cuota-fill" style="width:${prog}%"></div></div>
         <span style="font-size:9px;color:var(--muted);white-space:nowrap">${pagadas}/${g.cuotas} pag.</span>
-        <button onclick="pagarCuota('${g.id}')" style="background:none;border:1px solid var(--border);color:var(--accent2);border-radius:4px;padding:0 7px;font-size:13px;line-height:18px;flex-shrink:0" title="Registrar cuota pagada">+</button>
+        <button onclick="pagarCuota('${g.id}')" style="background:${g.ultimoPago===currentMonth?'var(--accent2)':'none'};border:1px solid var(--accent2);color:${g.ultimoPago===currentMonth?'#0d0d0f':'var(--accent2)'};border-radius:4px;padding:0 7px;font-size:13px;line-height:18px;flex-shrink:0" title="${g.ultimoPago===currentMonth?'Cuota pagada este mes':'Registrar cuota pagada'}">${g.ultimoPago===currentMonth?'✓':'+'}</button>
       </div>
     </div>`;
   }).join('');
@@ -613,7 +615,7 @@ function renderIngresos(){
 function renderDashboard(){
   const fijosTotal=data.gastosFijos.filter(g=>g.pagado).reduce((a,g)=>a+g.monto,0);
   const diariosTotal=data.gastosDiarios.filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
-  const tarjetaTotal=data.gastosTarjeta.reduce((a,g)=>a+g.monto/g.cuotas,0);
+  const tarjetaTotal=data.gastosTarjeta.filter(g=>g.ultimoPago===currentMonth).reduce((a,g)=>a+g.monto/g.cuotas,0);
   const totalGastos=fijosTotal+diariosTotal+tarjetaTotal;
   const ingresosTotal=(data.ingresosRegistrados||[]).filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
   const saldo=ingresosTotal-totalGastos;
