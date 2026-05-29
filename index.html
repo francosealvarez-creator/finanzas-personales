@@ -396,7 +396,7 @@ function saveTarjeta(){
   const d=document.getElementById('t-desc').value.trim();
   const m=+document.getElementById('t-monto').value;
   if(!d||!m) return;
-  data.gastosTarjeta.push({id:genId(),descripcion:d,monto:m,categoria:document.getElementById('t-cat').value,cuotas:+document.getElementById('t-cuotas').value,cuotaActual:1,fecha:document.getElementById('t-fecha').value});
+  data.gastosTarjeta.push({id:genId(),descripcion:d,monto:m,categoria:document.getElementById('t-cat').value,cuotas:+document.getElementById('t-cuotas').value,cuotaActual:1,pagado:false,fecha:document.getElementById('t-fecha').value});
   save(); closeModal(); renderAll();
 }
 
@@ -408,6 +408,22 @@ function toggleFijo(id){
 function deleteFijo(id){ data.gastosFijos=data.gastosFijos.filter(x=>x.id!==id); save(); renderAll(); }
 function deleteDiario(id){ data.gastosDiarios=data.gastosDiarios.filter(x=>x.id!==id); save(); renderAll(); }
 function deleteTarjeta(id){ data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id); save(); renderAll(); }
+function toggleTarjeta(id){
+  const g=data.gastosTarjeta.find(x=>x.id===id);
+  if(!g) return;
+  if(!g.pagado){
+    g.pagado=true;
+    g.cuotaActual++;
+    if(g.cuotaActual>g.cuotas){
+      data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id);
+      save(); renderAll(); return;
+    }
+  } else {
+    g.pagado=false;
+    if(g.cuotaActual>1) g.cuotaActual--;
+  }
+  save(); renderAll();
+}
 function saveIngreso(){
   const d=document.getElementById('i-desc').value.trim();
   const m=+document.getElementById('i-monto').value;
@@ -519,10 +535,12 @@ function renderTarjeta(){
   el.innerHTML=data.gastosTarjeta.map(g=>{
     const c=cat(g.categoria);
     const cuotaAmt=g.monto/g.cuotas;
+    const cuotaPagada=g.pagado ? g.cuotaActual-1 : g.cuotaActual;
     const restante=g.cuotas-g.cuotaActual+1;
     const prog=((g.cuotaActual-1)/g.cuotas*100).toFixed(0);
-    return `<div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
+    return `<div class="row${g.pagado?' dimmed':''}" style="flex-direction:column;align-items:stretch;gap:8px">
       <div style="display:flex;align-items:center;gap:10px">
+        <button class="check-btn" onclick="toggleTarjeta('${g.id}')" title="Marcar cuota como ${g.pagado?'no pagada':'pagada'}">${g.pagado?'✅':'⭕'}</button>
         <span class="cat-emoji">${c.emoji}</span>
         <div style="flex:1;min-width:0">
           <div class="row-name">${g.descripcion}</div>
@@ -530,13 +548,13 @@ function renderTarjeta(){
         </div>
         <div style="text-align:right">
           <div style="font-size:12px;color:var(--accent2);font-weight:500">${pesos(cuotaAmt)}/mes</div>
-          <div style="font-size:10px;color:var(--muted)">${restante} cuota${restante!==1?'s':''} restante${restante!==1?'s':''}</div>
+          <div style="font-size:10px;color:var(--muted)">${g.pagado?'cuota '+cuotaPagada+'/'+g.cuotas+' pagada':restante+' cuota'+(restante!==1?'s':'')+' restante'+(restante!==1?'s':'')}</div>
         </div>
         <button class="row-del" onclick="deleteTarjeta('${g.id}')">✕</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="cuota-bar"><div class="cuota-fill" style="width:${prog}%"></div></div>
-        <span style="font-size:9px;color:var(--muted)">${g.cuotaActual}/${g.cuotas}</span>
+        <span style="font-size:9px;color:var(--muted)">${cuotaPagada}/${g.cuotas}</span>
       </div>
     </div>`;
   }).join('');
@@ -591,7 +609,7 @@ function renderIngresos(){
 function renderDashboard(){
   const fijosTotal=data.gastosFijos.filter(g=>g.pagado).reduce((a,g)=>a+g.monto,0);
   const diariosTotal=data.gastosDiarios.filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
-  const tarjetaTotal=data.gastosTarjeta.reduce((a,g)=>a+g.monto/g.cuotas,0);
+  const tarjetaTotal=data.gastosTarjeta.filter(g=>g.pagado).reduce((a,g)=>a+g.monto/g.cuotas,0);
   const totalGastos=fijosTotal+diariosTotal+tarjetaTotal;
   const ingresosTotal=(data.ingresosRegistrados||[]).filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
   const saldo=ingresosTotal-totalGastos;
