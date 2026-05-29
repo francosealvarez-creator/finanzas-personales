@@ -420,6 +420,13 @@ function toggleFijo(id){
 function deleteFijo(id){ data.gastosFijos=data.gastosFijos.filter(x=>x.id!==id); save(); renderAll(); }
 function deleteDiario(id){ data.gastosDiarios=data.gastosDiarios.filter(x=>x.id!==id); save(); renderAll(); }
 function deleteTarjeta(id){ data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id); save(); renderAll(); }
+function pagarCuota(id){
+  const g=data.gastosTarjeta.find(x=>x.id===id);
+  if(!g) return;
+  g.cuotaActual++;
+  if(g.cuotaActual>g.cuotas) data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id);
+  save(); renderAll();
+}
 function saveIngreso(){
   const d=document.getElementById('i-desc').value.trim();
   const m=+document.getElementById('i-monto').value;
@@ -551,6 +558,7 @@ function renderTarjeta(){
       <div style="display:flex;align-items:center;gap:8px">
         <div class="cuota-bar"><div class="cuota-fill" style="width:${prog}%"></div></div>
         <span style="font-size:9px;color:var(--muted);white-space:nowrap">${pagadas}/${g.cuotas} pag.</span>
+        <button onclick="pagarCuota('${g.id}')" style="background:none;border:1px solid var(--border);color:var(--accent2);border-radius:4px;padding:0 7px;font-size:13px;line-height:18px;flex-shrink:0" title="Registrar cuota pagada">+</button>
       </div>
     </div>`;
   }).join('');
