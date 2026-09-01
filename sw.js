@@ -1,7 +1,5 @@
-﻿const CACHE_NAME = 'finanzas-pwa-v2';
+﻿const CACHE_NAME = 'finanzas-pwa-v4';
 const ASSETS = [
-  './',
-  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -12,8 +10,9 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', event => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
 });
 
@@ -25,17 +24,32 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Network-First para páginas HTML para que siempre se vea la última versión al desplegar
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request).then(fetchRes => {
-        return caches.open(CACHE_NAME).then(cache => {
-          if (event.request.method === 'GET' && !event.request.url.startsWith('chrome-extension')) {
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then(fetchRes => {
+          return caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, fetchRes.clone());
-          }
-          return fetchRes;
-        });
-      });
-    }).catch(() => caches.match('./index.html'))
+            return fetchRes;
+          });
+        })
+        .catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then(cachedResponse => {
+      const fetchPromise = fetch(event.request).then(networkResponse => {
+        if (event.request.method === 'GET' && !event.request.url.startsWith('chrome-extension')) {
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, networkResponse.clone()));
+        }
+        return networkResponse;
+      }).catch(() => cachedResponse);
+
+      return cachedResponse || fetchPromise;
+    })
   );
 });
