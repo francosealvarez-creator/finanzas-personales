@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -266,7 +266,16 @@ let currentMonth = new Date().toISOString().slice(0,7); // "YYYY-MM"
 let pieChart = null, barChart = null;
 
 function load(){
-  try{ const r=localStorage.getItem(KEY); if(r) data={...data,...JSON.parse(r)}; }catch(e){}
+  try{ 
+    const r=localStorage.getItem(KEY); 
+    if(r) data={...data,...JSON.parse(r)}; 
+  }catch(e){}
+
+  // Garantizar que todos los arreglos existan siempre
+  data.gastosFijos = data.gastosFijos || [];
+  data.gastosDiarios = data.gastosDiarios || [];
+  data.gastosTarjeta = data.gastosTarjeta || [];
+  data.ingresosRegistrados = data.ingresosRegistrados || [];
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
 function genId(){ return Math.random().toString(36).slice(2,10); }
@@ -430,13 +439,42 @@ function pagarCuota(id){
   save(); renderAll();
 }
 function saveIngreso(){
-  const d=document.getElementById('i-desc').value.trim();
-  const m=+document.getElementById('i-monto').value;
-  if(!d||!m) return;
-  data.ingresosRegistrados.push({id:genId(),descripcion:d,monto:m,fuente:document.getElementById('i-fuente').value,fecha:document.getElementById('i-fecha').value});
-  save(); closeModal(); renderAll();
+  const d = document.getElementById('i-desc').value.trim();
+  const m = +document.getElementById('i-monto').value;
+  const fecha = document.getElementById('i-fecha').value;
+  const fuente = document.getElementById('i-fuente').value;
+
+  if (!d) { alert('Ingresá una descripción'); return; }
+  if (!m || m <= 0) { alert('Ingresá un monto válido mayor a 0'); return; }
+  if (!fecha) { alert('Seleccioná una fecha'); return; }
+
+  data.ingresosRegistrados = data.ingresosRegistrados || [];
+  data.ingresosRegistrados.push({
+    id: genId(),
+    descripcion: d,
+    monto: m,
+    fuente: fuente,
+    fecha: fecha
+  });
+
+  save(); 
+  closeModal(); 
+
+  // Sincroniza con el mes del ingreso si es diferente al actual
+  const mesIngreso = fecha.slice(0, 7);
+  if (mesIngreso !== currentMonth) {
+    currentMonth = mesIngreso;
+  }
+
+  renderAll();
 }
-function deleteIngreso(id){ data.ingresosRegistrados=data.ingresosRegistrados.filter(x=>x.id!==id); save(); renderAll(); }
+
+function deleteIngreso(id){ 
+  if (!data.ingresosRegistrados) return;
+  data.ingresosRegistrados = data.ingresosRegistrados.filter(x => x.id !== id); 
+  save(); 
+  renderAll(); 
+}
 
 function toggleDate(id){
   const body=document.getElementById('dg-'+id);
