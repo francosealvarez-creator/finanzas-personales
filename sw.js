@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = 'finanzas-pwa-v4';
+﻿const CACHE_NAME = 'finanzas-pwa-v5';
 const ASSETS = [
   './manifest.json',
   './icon-192.png',
@@ -6,7 +6,8 @@ const ASSETS = [
   'https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
 self.addEventListener('install', event => {
@@ -24,7 +25,6 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Network-First para páginas HTML para que siempre se vea la última versión al desplegar
 self.addEventListener('fetch', event => {
   if (event.request.mode === 'navigate' || event.request.destination === 'document') {
     event.respondWith(

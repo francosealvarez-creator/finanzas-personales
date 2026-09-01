@@ -19,6 +19,8 @@
 <!-- jsPDF & autoTable for AI-ready PDF export -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- Supabase Cloud Sync -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -38,7 +40,7 @@ body{
 }
 .serif{font-family:'DM Serif Display',serif}
 
-/* Inputs & Form Controls (16px font-size prevents iOS zoom) */
+/* Inputs & Form Controls (16px prevents iOS zoom) */
 input,select,textarea{
   background:var(--surface2);
   border:1px solid var(--border);
@@ -84,17 +86,36 @@ header{
 .header-left{display:flex;align-items:center;gap:8px}
 .logo{color:var(--accent);font-family:'DM Serif Display',serif;font-size:20px;letter-spacing:-0.02em}
 .logo-sub{color:var(--muted);font-size:8px;letter-spacing:.12em}
-.header-right{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.header-right{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+
+/* Cloud sync indicator */
+.cloud-badge{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:4px 8px;
+  font-size:10px;
+  color:var(--muted);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.cloud-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.cloud-dot.syncing{background:var(--warning);box-shadow:0 0 6px var(--warning);animation:pulse .8s infinite alternate}
+.cloud-dot.offline{background:var(--muted);box-shadow:none}
+@keyframes pulse{from{opacity:0.4}to{opacity:1}}
 
 .btn-pdf{
   display:inline-flex;
   align-items:center;
-  gap:5px;
+  gap:4px;
   background:var(--surface2);
   color:var(--accent);
   border:1px solid var(--accent);
   border-radius:6px;
-  padding:6px 9px;
+  padding:6px 8px;
   font-size:11px;
   font-weight:500;
   white-space:nowrap;
@@ -114,7 +135,7 @@ header{
   white-space:nowrap;
 }
 
-.month-nav{display:flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px 6px}
+.month-nav{display:flex;align-items:center;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px 6px}
 .month-btn{background:none;border:none;color:var(--muted);font-size:14px;padding:2px 6px}
 .month-btn:hover{color:var(--text)}
 .month-display{font-size:11px;color:var(--text);min-width:76px;text-align:center;text-transform:capitalize;font-weight:500}
@@ -273,7 +294,11 @@ main{max-width:760px;margin:0 auto;padding:16px 14px}
       </div>
     </div>
     <div class="header-right">
-      <button class="btn-pdf" onclick="exportPDF()" title="Exportar reporte en PDF">📄 PDF (IA)</button>
+      <div id="cloud-status" class="cloud-badge" onclick="forceCloudSync()" title="Estado de sincronización en la nube (Clic para forzar)">
+        <div id="cloud-dot" class="cloud-dot"></div>
+        <span id="cloud-text">Nube</span>
+      </div>
+      <button class="btn-pdf" onclick="exportPDF()" title="Exportar reporte en PDF">📄 PDF</button>
       <button id="btn-install" class="btn-install" onclick="installPWA()">📲 App</button>
       <div class="month-nav">
         <button class="month-btn" onclick="changeMonth(-1)">‹</button>
@@ -472,6 +497,20 @@ main{max-width:760px;margin:0 auto;padding:16px 14px}
 </div>
 
 <script>
+// ── SUPABASE CONFIG ───────────────────────────────────────────────
+const SUPABASE_URL = 'https://vesqulhxyodxuhedgfuh.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlc3F1bGh4eW9keHVoZWRnZnVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyNzI3NjMsImV4cCI6MjEwMzg0ODc2M30.VdO_Brcwb7wWbOM3iN7m6Ol9ApaE1TRYeJZV5UBlTJk';
+const USER_ID = 'mi_usuario';
+
+let supabase = null;
+try {
+  if (window.supabase) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch(e) {
+  console.log('Supabase client error:', e);
+}
+
 // ── DATA ──────────────────────────────────────────────────────────
 const CATS = [
   {id:'vivienda',    label:'Vivienda',      emoji:'🏠', color:'#c8f55a'},
@@ -513,13 +552,20 @@ let data = {gastosFijos:[], gastosDiarios:[], gastosTarjeta:[], ingresosRegistra
 let currentMonth = new Date().toISOString().slice(0,7); // "YYYY-MM"
 let pieChart = null, barChart = null;
 
-function load(){
+function setCloudStatus(status, text){
+  const dot = document.getElementById('cloud-dot');
+  const span = document.getElementById('cloud-text');
+  if(!dot || !span) return;
+  dot.className = 'cloud-dot ' + (status === 'syncing' ? 'syncing' : (status === 'offline' ? 'offline' : ''));
+  span.textContent = text || 'Nube';
+}
+
+function loadLocal(){
   try{ 
     const r=localStorage.getItem(KEY); 
     if(r) data={...data,...JSON.parse(r)}; 
   }catch(e){}
 
-  // Garantizar que todos los arreglos existan siempre
   data.gastosFijos = data.gastosFijos || [];
   data.gastosDiarios = data.gastosDiarios || [];
   data.gastosTarjeta = data.gastosTarjeta || [];
@@ -527,7 +573,94 @@ function load(){
   data.atajosRapidos = (data.atajosRapidos && data.atajosRapidos.length) ? data.atajosRapidos : DEFAULT_ATAJOS;
 }
 
-function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
+async function loadFromCloud(){
+  if(!supabase) { setCloudStatus('offline', 'Local'); return; }
+  setCloudStatus('syncing', 'Cargando');
+  try {
+    const { data: row, error } = await supabase
+      .from('finanzas_data')
+      .select('data, updated_at')
+      .eq('id', USER_ID)
+      .maybeSingle();
+
+    if(error){
+      console.log('Error al cargar de Supabase:', error);
+      setCloudStatus('offline', 'Local');
+      return;
+    }
+
+    if(row && row.data && typeof row.data === 'object'){
+      // Mezclar datos remotos
+      data = { ...data, ...row.data };
+      saveLocal();
+      renderAll();
+      setCloudStatus('online', 'En línea');
+    } else {
+      // Si la base está vacía, subir los datos locales existentes
+      saveToCloud();
+    }
+  } catch(e) {
+    console.log('Error conexión cloud:', e);
+    setCloudStatus('offline', 'Local');
+  }
+}
+
+function saveLocal(){
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+
+let syncTimeout = null;
+function saveToCloud(){
+  if(!supabase) return;
+  setCloudStatus('syncing', 'Guardando');
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(async () => {
+    try {
+      const { error } = await supabase
+        .from('finanzas_data')
+        .upsert({
+          id: USER_ID,
+          data: data,
+          updated_at: new Date().toISOString()
+        });
+      if(error){
+        console.log('Error guardando en Supabase:', error);
+        setCloudStatus('offline', 'Error nube');
+      } else {
+        setCloudStatus('online', 'En línea');
+      }
+    } catch(e) {
+      console.log('Excepción guardando cloud:', e);
+      setCloudStatus('offline', 'Local');
+    }
+  }, 300);
+}
+
+function save(){
+  saveLocal();
+  saveToCloud();
+}
+
+function forceCloudSync(){
+  loadFromCloud();
+}
+
+// Suscripción en tiempo real: si cambia en el celular, se actualiza en la PC sin refrescar
+function initRealtimeSync(){
+  if(!supabase) return;
+  supabase
+    .channel('finanzas_realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'finanzas_data', filter: `id=eq.${USER_ID}` }, payload => {
+      if(payload.new && payload.new.data){
+        data = { ...data, ...payload.new.data };
+        saveLocal();
+        renderAll();
+        setCloudStatus('online', 'Sincronizado');
+      }
+    })
+    .subscribe();
+}
+
 function genId(){ return Math.random().toString(36).slice(2,10); }
 function pesos(n){
   return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',minimumFractionDigits:0}).format(n);
@@ -824,7 +957,7 @@ function updateCuotaHint(){
   if(h && m>0) h.innerHTML=`<div class="hint">Cuota mensual: ${pesos(m/c)}</div>`;
 }
 
-// ── SAVE ──────────────────────────────────────────────────────────
+// ── SAVE ACTIONS ──────────────────────────────────────────────────
 function saveFijo(){
   const n=document.getElementById('f-nombre').value.trim();
   const m=+document.getElementById('f-monto').value;
@@ -1388,7 +1521,9 @@ function exportPDF(){
 // ── PWA & SERVICE WORKER ──────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW no registrado:', err));
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      reg.update();
+    }).catch(err => console.log('SW no registrado:', err));
   });
 }
 
@@ -1414,8 +1549,10 @@ function installPWA() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
-load();
+loadLocal();
 renderAll();
+loadFromCloud();
+initRealtimeSync();
 </script>
 </body>
 </html>
