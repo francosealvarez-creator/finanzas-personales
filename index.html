@@ -19,7 +19,7 @@
 <!-- jsPDF & autoTable for AI-ready PDF export -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<!-- Supabase Cloud Sync -->
+<!-- Supabase Cloud Sync CDN -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
@@ -512,13 +512,17 @@ const SUPABASE_URL = 'https://vesqulhxyodxuhedgfuh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlc3F1bGh4eW9keHVoZWRnZnVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyNzI3NjMsImV4cCI6MjEwMzg0ODc2M30.VdO_Brcwb7wWbOM3iN7m6Ol9ApaE1TRYeJZV5UBlTJk';
 const USER_ID = 'mi_usuario';
 
-let supabase = null;
-try {
-  if (window.supabase && typeof window.supabase.createClient === 'function') {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let _sbClient = null;
+function getClient() {
+  if (_sbClient) return _sbClient;
+  try {
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+      _sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+  } catch(e) {
+    console.error('Error init client:', e);
   }
-} catch(e) {
-  console.log('Supabase client error:', e);
+  return _sbClient;
 }
 
 // ── DATA ──────────────────────────────────────────────────────────
@@ -596,10 +600,11 @@ function loadLocal(){
 }
 
 async function loadFromCloud(){
-  if(!supabase) { setCloudStatus('offline', 'Local'); return; }
+  const client = getClient();
+  if(!client) { setCloudStatus('offline', 'Local'); return; }
   setCloudStatus('syncing', 'Cargando');
   try {
-    const { data: row, error } = await supabase
+    const { data: row, error } = await client
       .from('finanzas_data')
       .select('data, updated_at')
       .eq('id', USER_ID)
@@ -613,7 +618,6 @@ async function loadFromCloud(){
 
     if(row && row.data && typeof row.data === 'object'){
       const remote = ensureData(row.data);
-      // Si la nube tiene datos, los usamos
       const localHasData = (data.gastosFijos.length || data.gastosDiarios.length || data.ingresosRegistrados.length || data.gastosTarjeta.length);
       const remoteHasData = (remote.gastosFijos.length || remote.gastosDiarios.length || remote.ingresosRegistrados.length || remote.gastosTarjeta.length);
 
@@ -621,7 +625,6 @@ async function loadFromCloud(){
         data = remote;
         saveLocal();
       } else if (localHasData && !remoteHasData) {
-        // Si local tenía datos pero nube estaba vacía, subimos los locales
         saveToCloud();
       }
       renderAll();
@@ -642,12 +645,13 @@ function saveLocal(){
 
 let syncTimeout = null;
 function saveToCloud(){
-  if(!supabase) return;
+  const client = getClient();
+  if(!client) return;
   setCloudStatus('syncing', 'Guardando');
   clearTimeout(syncTimeout);
   syncTimeout = setTimeout(async () => {
     try {
-      const { error } = await supabase
+      const { error } = await client
         .from('finanzas_data')
         .upsert({
           id: USER_ID,
@@ -677,9 +681,10 @@ function forceCloudSync(){
 }
 
 function initRealtimeSync(){
-  if(!supabase) return;
+  const client = getClient();
+  if(!client) return;
   try {
-    supabase
+    client
       .channel('finanzas_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finanzas_data', filter: `id=eq.${USER_ID}` }, payload => {
         if(payload && payload.new && payload.new.data){
@@ -700,18 +705,22 @@ function pesos(n){
   return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',minimumFractionDigits:0}).format(n || 0);
 }
 function monthLabel(m){
-  const [y,mo]=m.split('-');
-  return new Date(+y,+mo-1,1).toLocaleDateString('es-AR',{month:'long',year:'numeric'});
+  if(!m || typeof m !== 'string') return '';
+  const parts = m.split('-');
+  if(parts.length < 2) return '';
+  const y = +parts[0], mo = +parts[1];
+  return new Date(y, mo - 1, 1).toLocaleDateString('es-AR', {month:'long', year:'numeric'});
 }
 function changeMonth(d){
-  const [y,m]=currentMonth.split('-').map(Number);
-  const nd=new Date(y,m-1+d,1);
-  currentMonth=nd.toISOString().slice(0,7);
+  const parts = currentMonth.split('-').map(Number);
+  const y = parts[0], m = parts[1];
+  const nd = new Date(y, m - 1 + d, 1);
+  currentMonth = nd.toISOString().slice(0, 7);
   renderAll();
 }
 
 // ── TABS ──────────────────────────────────────────────────────────
-function showTab(id,btn){
+function showTab(id, btn){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   const targetPanel = document.getElementById('tab-'+id);
@@ -788,7 +797,6 @@ function updateSimulation(){
   const tarjeta = Array.isArray(data.gastosTarjeta) ? data.gastosTarjeta : [];
   const ingresos = Array.isArray(data.ingresosRegistrados) ? data.ingresosRegistrados : [];
 
-  // KPIs actuales
   const fijosTotal = fijos.filter(g=>g.pagado).reduce((a,g)=>a+(+g.monto||0),0);
   const diariosTotal = diarios.filter(g=>g.fecha && g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+(+g.monto||0),0);
   const tarjetaTotal = tarjeta.filter(g=>g.ultimoPago===currentMonth).reduce((a,g)=>a+((+g.monto||0)/(+g.cuotas||1)),0);
@@ -803,7 +811,6 @@ function updateSimulation(){
   const pctIngreso = ingresosTotal > 0 ? ((cuotaMensualSim / ingresosTotal) * 100).toFixed(1) : 0;
   const deudaNueva = deudaTarjetaActual + (tipo === 'cuotas' ? monto : 0);
 
-  // Render métricas
   const cuotaEl = document.getElementById('sim-res-cuota');
   const saldoEl = document.getElementById('sim-res-saldo');
   const pctEl = document.getElementById('sim-res-pct');
@@ -1099,7 +1106,8 @@ function toggleDate(id){
 
 // ── RENDER ──────────────────────────────────────────────────────────
 function renderAll(){
-  document.getElementById('month-display').textContent=monthLabel(currentMonth);
+  const disp = document.getElementById('month-display');
+  if(disp) disp.textContent = monthLabel(currentMonth);
   renderAtajos();
   renderFijos();
   renderDiarios();
@@ -1389,7 +1397,6 @@ function exportPDF(){
   const tarjeta = Array.isArray(data.gastosTarjeta) ? data.gastosTarjeta : [];
   const ingresos = Array.isArray(data.ingresosRegistrados) ? data.ingresosRegistrados : [];
 
-  // Cálculos del mes
   const fijosTotal = fijos.reduce((a,g)=>a+(+g.monto||0),0);
   const fijosPagados = fijos.filter(g=>g.pagado).reduce((a,g)=>a+(+g.monto||0),0);
   const diariosMes = diarios.filter(g=>g.fecha && g.fecha.startsWith(currentMonth));
@@ -1402,13 +1409,12 @@ function exportPDF(){
   const saldo = ingresosTotal - totalGastos;
   const pct = ingresosTotal ? ((totalGastos / ingresosTotal) * 100).toFixed(1) + '%' : '0%';
 
-  // Estilos de cabecera
   doc.setFillColor(20, 20, 22);
   doc.rect(0, 0, 210, 38, 'F');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.setTextColor(200, 245, 90); // Accent
+  doc.setTextColor(200, 245, 90);
   doc.text('FINANZAS PERSONALES · REPORTE MENSUAL', 14, 16);
 
   doc.setFont('helvetica', 'normal');
@@ -1422,7 +1428,6 @@ function exportPDF(){
 
   let startY = 44;
 
-  // 1. Resumen Ejecutivo (KPIs)
   doc.autoTable({
     startY: startY,
     head: [['MÉTRICA CLAVE', 'VALOR', 'DETALLE / ESTADO']],
@@ -1443,7 +1448,6 @@ function exportPDF(){
 
   startY = doc.lastAutoTable.finalY + 8;
 
-  // 2. Gastos por Categoría
   const bycat = {};
   fijos.forEach(g => { bycat[g.categoria] = (bycat[g.categoria] || 0) + (+g.monto||0); });
   diariosMes.forEach(g => { bycat[g.categoria] = (bycat[g.categoria] || 0) + (+g.monto||0); });
@@ -1472,7 +1476,6 @@ function exportPDF(){
     startY = doc.lastAutoTable.finalY + 8;
   }
 
-  // 3. Ingresos Detallados
   if (ingresosMes.length) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
@@ -1497,7 +1500,6 @@ function exportPDF(){
     startY = doc.lastAutoTable.finalY + 8;
   }
 
-  // 4. Gastos Fijos
   if (fijos.length) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
@@ -1523,7 +1525,6 @@ function exportPDF(){
     startY = doc.lastAutoTable.finalY + 8;
   }
 
-  // 5. Gastos Diarios
   if (diariosMes.length) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
@@ -1549,7 +1550,6 @@ function exportPDF(){
     startY = doc.lastAutoTable.finalY + 8;
   }
 
-  // 6. Tarjetas de Crédito
   if (tarjeta.length) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
@@ -1583,7 +1583,6 @@ function exportPDF(){
     startY = doc.lastAutoTable.finalY + 8;
   }
 
-  // 7. Bloque de Instrucciones para IA
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(80, 80, 90);
@@ -1596,7 +1595,6 @@ function exportPDF(){
   const splitPrompt = doc.splitTextToSize(promptText, 182);
   doc.text(splitPrompt, 14, startY + 4);
 
-  // Guardar archivo con nombre descriptivo
   const filename = `Reporte_Finanzas_${currentMonth}.pdf`;
   doc.save(filename);
 }
@@ -1632,10 +1630,20 @@ function installPWA() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
-loadLocal();
-renderAll();
-loadFromCloud();
-initRealtimeSync();
+document.addEventListener('DOMContentLoaded', () => {
+  loadLocal();
+  renderAll();
+  loadFromCloud();
+  initRealtimeSync();
+});
+
+// Fallback if DOMContentLoaded already fired
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  loadLocal();
+  renderAll();
+  loadFromCloud();
+  initRealtimeSync();
+}
 </script>
 </body>
 </html>
