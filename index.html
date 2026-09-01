@@ -1,9 +1,19 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Finanzas Personales</title>
+
+<!-- PWA & Mobile Meta Tags -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d0d0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Finanzas">
+<link rel="apple-touch-icon" href="icon-192.png">
+
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -13,23 +23,27 @@
   --accent:#c8f55a;--accent2:#5af5c8;--danger:#f55a5a;--warning:#f5c85a;--purple:#c85af5;
   --text:#f0ede8;--muted:#6b6b72;
 }
-body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding-bottom:20px}
 .serif{font-family:'DM Serif Display',serif}
 input,select,textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-family:inherit;font-size:13px;width:100%;outline:none;transition:border-color .15s}
 input:focus,select:focus{border-color:var(--accent)}
 select option{background:var(--surface2)}
-button{cursor:pointer;font-family:inherit;transition:opacity .15s}
-button:hover{opacity:.8}
-::-webkit-scrollbar{width:4px}
+button{cursor:pointer;font-family:inherit;transition:opacity .15s, transform .1s}
+button:hover{opacity:.85}
+button:active{transform:scale(0.98)}
+::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:var(--surface)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
 /* LAYOUT */
 header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.header-left{display:flex;align-items:center;gap:12px}
 .logo{color:var(--accent);font-family:'DM Serif Display',serif;font-size:20px}
 .logo-sub{color:var(--muted);font-size:9px;letter-spacing:.12em}
+.header-right{display:flex;align-items:center;gap:10px}
+.btn-install{display:none;align-items:center;gap:5px;background:var(--surface2);color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:4px 9px;font-size:11px;font-weight:500}
 nav{background:var(--surface);border-bottom:1px solid var(--border);display:flex;padding:0 16px;position:sticky;top:57px;z-index:40;overflow-x:auto}
-.tab{display:flex;align-items:center;gap:5px;padding:12px 14px;font-size:12px;color:var(--muted);border:none;background:none;color:var(--muted);position:relative;white-space:nowrap}
+.tab{display:flex;align-items:center;gap:5px;padding:12px 14px;font-size:12px;color:var(--muted);border:none;background:none;position:relative;white-space:nowrap}
 .tab.active{color:var(--accent)}
 .tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent);border-radius:2px 2px 0 0}
 main{max-width:760px;margin:0 auto;padding:24px 16px}
@@ -42,6 +56,16 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
 .btn-primary{background:var(--accent);color:#0d0d0f;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;flex-shrink:0}
 .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:12px}
 .btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);border-radius:8px;padding:9px 14px;font-size:12px}
+
+/* ATAJOS RÁPIDOS */
+.atajos-section{margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.atajos-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.atajos-title{font-size:10px;color:var(--muted);letter-spacing:.1em}
+.atajos-scroll{display:flex;align-items:center;gap:8px;overflow-x:auto;padding-bottom:4px}
+.atajo-chip{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 12px;font-size:12px;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s}
+.atajo-chip:hover{border-color:var(--accent);background:#222226;color:var(--accent)}
+.atajo-add{border-style:dashed;color:var(--muted)}
+.atajo-add:hover{border-color:var(--accent2);color:var(--accent2)}
 
 /* MODAL */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
@@ -85,7 +109,6 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
 .stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px}
 .stat-label{font-size:9px;color:var(--muted);letter-spacing:.1em;margin-bottom:5px}
 .stat-value{font-family:'DM Serif Display',serif;font-size:18px}
-.stat-value.editable{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
 
 /* CHARTS */
 .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -120,14 +143,19 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
 <body>
 
 <header>
-  <div>
-    <div class="logo">finanzas</div>
-    <div class="logo-sub">CONTROL PERSONAL</div>
+  <div class="header-left">
+    <div>
+      <div class="logo">finanzas</div>
+      <div class="logo-sub">CONTROL PERSONAL</div>
+    </div>
   </div>
-  <div class="month-nav">
-    <button class="month-btn" onclick="changeMonth(-1)">‹</button>
-    <div class="month-display" id="month-display"></div>
-    <button class="month-btn" onclick="changeMonth(1)">›</button>
+  <div class="header-right">
+    <button id="btn-install" class="btn-install" onclick="installPWA()">📲 Instalar</button>
+    <div class="month-nav">
+      <button class="month-btn" onclick="changeMonth(-1)">‹</button>
+      <div class="month-display" id="month-display"></div>
+      <button class="month-btn" onclick="changeMonth(1)">›</button>
+    </div>
   </div>
 </header>
 
@@ -140,6 +168,15 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
 </nav>
 
 <main>
+
+<!-- ATAJOS RÁPIDOS (GLOBALES) -->
+<div class="atajos-section">
+  <div class="atajos-hdr">
+    <div class="atajos-title">⚡ GASTO RÁPIDO</div>
+    <button class="btn-ghost" style="padding:3px 8px;font-size:10px" onclick="openModal('atajo')">+ Atajo</button>
+  </div>
+  <div class="atajos-scroll" id="atajos-list"></div>
+</div>
 
 <!-- DASHBOARD -->
 <div class="panel active" id="tab-dashboard">
@@ -258,10 +295,19 @@ const FUENTES = [
 const fuenteMap = {};
 FUENTES.forEach(f => fuenteMap[f.id] = f);
 
+const DEFAULT_ATAJOS = [
+  {id:'cafe',       label:'Café',        emoji:'☕', categoria:'comida'},
+  {id:'almuerzo',   label:'Almuerzo',    emoji:'🍔', categoria:'comida'},
+  {id:'super',      label:'Supermercado',emoji:'🛒', categoria:'comida'},
+  {id:'transporte', label:'Transporte',  emoji:'🚗', categoria:'transporte'},
+  {id:'delivery',   label:'Delivery',    emoji:'🛵', categoria:'comida'},
+  {id:'farmacia',   label:'Farmacia',    emoji:'💊', categoria:'salud'}
+];
+
 function cat(id){ return catMap[id] || catMap['otros']; }
 
 const KEY = 'finanzas_v2';
-let data = {gastosFijos:[], gastosDiarios:[], gastosTarjeta:[], ingresosRegistrados:[], ingresoMensual:0};
+let data = {gastosFijos:[], gastosDiarios:[], gastosTarjeta:[], ingresosRegistrados:[], atajosRapidos:DEFAULT_ATAJOS, ingresoMensual:0};
 let currentMonth = new Date().toISOString().slice(0,7); // "YYYY-MM"
 let pieChart = null, barChart = null;
 
@@ -276,7 +322,9 @@ function load(){
   data.gastosDiarios = data.gastosDiarios || [];
   data.gastosTarjeta = data.gastosTarjeta || [];
   data.ingresosRegistrados = data.ingresosRegistrados || [];
+  data.atajosRapidos = (data.atajosRapidos && data.atajosRapidos.length) ? data.atajosRapidos : DEFAULT_ATAJOS;
 }
+
 function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
 function genId(){ return Math.random().toString(36).slice(2,10); }
 function pesos(n){
@@ -301,14 +349,70 @@ function showTab(id,btn){
   btn.classList.add('active');
 }
 
+// ── ATAJOS RÁPIDOS ────────────────────────────────────────────────
+function renderAtajos(){
+  const el = document.getElementById('atajos-list');
+  if(!el) return;
+  const list = data.atajosRapidos || DEFAULT_ATAJOS;
+  el.innerHTML = list.map(a => `
+    <button class="atajo-chip" onclick="triggerAtajo('${a.id}')" title="Registrar ${a.label}">
+      <span>${a.emoji||'🏷️'}</span>
+      <span>${a.label}</span>
+    </button>
+  `).join('') + `
+    <button class="atajo-chip atajo-add" onclick="openModal('atajo')" title="Crear nuevo atajo">
+      <span>+</span>
+      <span>Personalizado</span>
+    </button>
+  `;
+}
+
+function triggerAtajo(id){
+  const a = (data.atajosRapidos||DEFAULT_ATAJOS).find(x=>x.id===id);
+  if(!a) return;
+  openModal('diario', null, {desc: a.label, cat: a.categoria, monto: a.montoDefault||''});
+  setTimeout(()=>{
+    const mInput = document.getElementById('d-monto');
+    if(mInput) { mInput.focus(); mInput.select(); }
+  }, 100);
+}
+
+function saveCustomAtajo(){
+  const label = document.getElementById('at-label').value.trim();
+  const cat = document.getElementById('at-cat').value;
+  const emoji = document.getElementById('at-emoji').value.trim() || '⚡';
+  const monto = +document.getElementById('at-monto').value || 0;
+
+  if(!label){ alert('Ingresá el nombre del atajo'); return; }
+
+  data.atajosRapidos = data.atajosRapidos || [];
+  data.atajosRapidos.push({
+    id: genId(),
+    label: label,
+    emoji: emoji,
+    categoria: cat,
+    montoDefault: monto || ''
+  });
+
+  save();
+  closeModal();
+  renderAtajos();
+}
+
 // ── MODAL ──────────────────────────────────────────────────────────
 let modalType='';
-function openModal(type, editId){
+function openModal(type, editId, prefill){
   modalType=type; 
   const m=document.getElementById('modal');
-  const titles={fijo:'Nuevo gasto fijo',diario:'Nuevo gasto',tarjeta:'Nueva compra en tarjeta',ingreso:'Nuevo ingreso'};
+  const titles={
+    fijo:'Nuevo gasto fijo',
+    diario:'Nuevo gasto',
+    tarjeta:'Nueva compra en tarjeta',
+    ingreso:'Nuevo ingreso',
+    atajo:'Nuevo atajo rápido'
+  };
   document.getElementById('modal-title').textContent = editId ? 'Editar' : titles[type];
-  document.getElementById('modal-body').innerHTML = buildForm(type, editId);
+  document.getElementById('modal-body').innerHTML = buildForm(type, editId, prefill);
   m.style.display='flex';
   if(type==='tarjeta') updateCuotaHint();
 }
@@ -319,7 +423,7 @@ function catOptions(sel){
   return CATS.map(c=>`<option value="${c.id}"${c.id===sel?' selected':''}>${c.emoji} ${c.label}</option>`).join('');
 }
 
-function buildForm(type, editId){
+function buildForm(type, editId, prefill){
   const today=new Date().toISOString().slice(0,10);
   if(type==='fijo') return `
     <div class="field"><label>NOMBRE</label><input id="f-nombre" placeholder="Ej: Alquiler"></div>
@@ -332,17 +436,22 @@ function buildForm(type, editId){
       <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn-primary" onclick="saveFijo()">Guardar</button>
     </div>`;
-  if(type==='diario') return `
-    <div class="field"><label>DESCRIPCIÓN</label><input id="d-desc" placeholder="Ej: Almuerzo, taxi…"></div>
+  if(type==='diario'){
+    const descVal = (prefill && prefill.desc) || '';
+    const catVal = (prefill && prefill.cat) || 'comida';
+    const montoVal = (prefill && prefill.monto) || '';
+    return `
+    <div class="field"><label>DESCRIPCIÓN</label><input id="d-desc" placeholder="Ej: Almuerzo, taxi…" value="${descVal}"></div>
     <div class="grid2">
-      <div class="field"><label>MONTO ($)</label><input id="d-monto" type="number" placeholder="0"></div>
+      <div class="field"><label>MONTO ($)</label><input id="d-monto" type="number" placeholder="0" value="${montoVal}"></div>
       <div class="field"><label>FECHA</label><input id="d-fecha" type="date" value="${today}"></div>
     </div>
-    <div class="field"><label>CATEGORÍA</label><select id="d-cat">${catOptions('comida')}</select></div>
+    <div class="field"><label>CATEGORÍA</label><select id="d-cat">${catOptions(catVal)}</select></div>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn-primary" onclick="saveDiario()">Guardar</button>
     </div>`;
+  }
   if(type==='ingreso') return `
     <div class="field"><label>DESCRIPCIÓN</label><input id="i-desc" placeholder="Ej: Sueldo, Pago freelance…"></div>
     <div class="grid2">
@@ -378,6 +487,19 @@ function buildForm(type, editId){
       <button class="btn-primary" onclick="saveTarjeta('${editId||''}')">Guardar</button>
     </div>`;
   }
+  if(type==='atajo') return `
+    <div class="grid2">
+      <div class="field"><label>NOMBRE DEL ATAJO</label><input id="at-label" placeholder="Ej: Merienda"></div>
+      <div class="field"><label>EMOJI / ÍCONO</label><input id="at-emoji" placeholder="☕" maxlength="4"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>MONTO HABITUAL ($ OPCIONAL)</label><input id="at-monto" type="number" placeholder="0"></div>
+      <div class="field"><label>CATEGORÍA</label><select id="at-cat">${catOptions('comida')}</select></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveCustomAtajo()">Crear Atajo</button>
+    </div>`;
 }
 
 function updateCuotaHint(){
@@ -391,23 +513,27 @@ function updateCuotaHint(){
 function saveFijo(){
   const n=document.getElementById('f-nombre').value.trim();
   const m=+document.getElementById('f-monto').value;
-  if(!n||!m) return;
+  if(!n||!m){ alert('Completá nombre y monto'); return; }
   data.gastosFijos.push({id:genId(),nombre:n,monto:m,categoria:document.getElementById('f-cat').value,dia:+document.getElementById('f-dia').value,pagado:false});
   save(); closeModal(); renderAll();
 }
 function saveDiario(){
   const d=document.getElementById('d-desc').value.trim();
   const m=+document.getElementById('d-monto').value;
-  if(!d||!m) return;
-  data.gastosDiarios.push({id:genId(),descripcion:d,monto:m,categoria:document.getElementById('d-cat').value,fecha:document.getElementById('d-fecha').value});
-  save(); closeModal(); renderAll();
+  const fecha=document.getElementById('d-fecha').value;
+  if(!d||!m||!fecha){ alert('Completá descripción, monto y fecha'); return; }
+  data.gastosDiarios.push({id:genId(),descripcion:d,monto:m,categoria:document.getElementById('d-cat').value,fecha:fecha});
+  save(); closeModal();
+  const mesGasto = fecha.slice(0, 7);
+  if(mesGasto !== currentMonth) currentMonth = mesGasto;
+  renderAll();
 }
 function saveTarjeta(editId){
   const d=document.getElementById('t-desc').value.trim();
   const m=+document.getElementById('t-monto').value;
   const cuotas=Math.max(1,+document.getElementById('t-cuotas').value||1);
   const pagadas=Math.min(Math.max(0,+document.getElementById('t-pagadas').value||0),cuotas);
-  if(!d||!m) return;
+  if(!d||!m){ alert('Completá descripción y monto'); return; }
   if(pagadas>=cuotas){
     if(editId) data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==editId);
     save(); closeModal(); renderAll(); return;
@@ -421,23 +547,6 @@ function saveTarjeta(editId){
   save(); closeModal(); renderAll();
 }
 
-// ── TOGGLE / DELETE ──────────────────────────────────────────────
-function toggleFijo(id){
-  const g=data.gastosFijos.find(x=>x.id===id);
-  if(g){ g.pagado=!g.pagado; save(); renderAll(); }
-}
-function deleteFijo(id){ data.gastosFijos=data.gastosFijos.filter(x=>x.id!==id); save(); renderAll(); }
-function deleteDiario(id){ data.gastosDiarios=data.gastosDiarios.filter(x=>x.id!==id); save(); renderAll(); }
-function deleteTarjeta(id){ data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id); save(); renderAll(); }
-function pagarCuota(id){
-  const g=data.gastosTarjeta.find(x=>x.id===id);
-  if(!g) return;
-  if(g.ultimoPago===currentMonth) return;
-  g.ultimoPago=currentMonth;
-  g.cuotaActual++;
-  if(g.cuotaActual>g.cuotas) data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id);
-  save(); renderAll();
-}
 function saveIngreso(){
   const d = document.getElementById('i-desc').value.trim();
   const m = +document.getElementById('i-monto').value;
@@ -469,11 +578,28 @@ function saveIngreso(){
   renderAll();
 }
 
+// ── TOGGLE / DELETE ──────────────────────────────────────────────
+function toggleFijo(id){
+  const g=data.gastosFijos.find(x=>x.id===id);
+  if(g){ g.pagado=!g.pagado; save(); renderAll(); }
+}
+function deleteFijo(id){ data.gastosFijos=data.gastosFijos.filter(x=>x.id!==id); save(); renderAll(); }
+function deleteDiario(id){ data.gastosDiarios=data.gastosDiarios.filter(x=>x.id!==id); save(); renderAll(); }
+function deleteTarjeta(id){ data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id); save(); renderAll(); }
 function deleteIngreso(id){ 
   if (!data.ingresosRegistrados) return;
   data.ingresosRegistrados = data.ingresosRegistrados.filter(x => x.id !== id); 
   save(); 
   renderAll(); 
+}
+function pagarCuota(id){
+  const g=data.gastosTarjeta.find(x=>x.id===id);
+  if(!g) return;
+  if(g.ultimoPago===currentMonth) return;
+  g.ultimoPago=currentMonth;
+  g.cuotaActual++;
+  if(g.cuotaActual>g.cuotas) data.gastosTarjeta=data.gastosTarjeta.filter(x=>x.id!==id);
+  save(); renderAll();
 }
 
 function toggleDate(id){
@@ -488,6 +614,7 @@ function toggleDate(id){
 // ── RENDER ──────────────────────────────────────────────────────────
 function renderAll(){
   document.getElementById('month-display').textContent=monthLabel(currentMonth);
+  renderAtajos();
   renderFijos();
   renderDiarios();
   renderTarjeta();
@@ -496,7 +623,6 @@ function renderAll(){
 }
 
 function renderFijos(){
-  // fijos are not month-filtered (they repeat every month) but pagado state is month-aware
   const sorted=[...data.gastosFijos].sort((a,b)=>a.dia-b.dia);
   const total=sorted.reduce((a,g)=>a+g.monto,0);
   const pagado=sorted.filter(g=>g.pagado).reduce((a,g)=>a+g.monto,0);
@@ -678,7 +804,7 @@ function renderDashboard(){
       <div class="stat-value" style="color:var(--warning)">${pct}</div>
     </div>`;
 
-  // By category
+  // Por categoría
   const bycat={};
   data.gastosFijos.forEach(g=>{ bycat[g.categoria]=(bycat[g.categoria]||0)+g.monto; });
   data.gastosDiarios.filter(g=>g.fecha.startsWith(currentMonth)).forEach(g=>{ bycat[g.categoria]=(bycat[g.categoria]||0)+g.monto; });
@@ -686,7 +812,7 @@ function renderDashboard(){
 
   const pieData=CATS.filter(c=>bycat[c.id]).map(c=>({label:c.label,emoji:c.emoji,value:bycat[c.id],color:c.color})).sort((a,b)=>b.value-a.value);
 
-  // Pie
+  // Gráfico de torta
   if(pieChart) pieChart.destroy();
   if(pieData.length){
     pieChart=new Chart(document.getElementById('pie-chart'),{
@@ -701,7 +827,7 @@ function renderDashboard(){
       <span class="legend-val">${pesos(d.value)}</span>
     </div>`).join('');
 
-  // Bar
+  // Gráfico de barras
   if(barChart) barChart.destroy();
   const barData=[
     {label:'Fijos',value:fijosTotal,color:'#c8f55a'},
@@ -720,11 +846,32 @@ function renderDashboard(){
     </div>`).join('');
 }
 
-function editIngreso(){
-  const val=prompt('Ingreso mensual ($):', data.ingresoMensual||'');
-  if(val===null) return;
-  const n=+val;
-  if(!isNaN(n)){ data.ingresoMensual=n; save(); renderAll(); }
+// ── PWA & SERVICE WORKER ──────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW no registrado:', err));
+  });
+}
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById('btn-install');
+  if (btn) btn.style.display = 'inline-flex';
+});
+
+function installPWA() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        const btn = document.getElementById('btn-install');
+        if (btn) btn.style.display = 'none';
+      }
+      deferredPrompt = null;
+    });
+  }
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
