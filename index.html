@@ -294,7 +294,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px}
       </div>
     </div>
     <div class="header-right">
-      <div id="cloud-status" class="cloud-badge" onclick="forceCloudSync()" title="Estado de sincronización en la nube (Clic para forzar)">
+      <div id="cloud-status" class="cloud-badge" onclick="forceCloudSync()" title="Estado de sincronización en la nube (Clic para reintentar)">
         <div id="cloud-dot" class="cloud-dot"></div>
         <span id="cloud-text">Nube</span>
       </div>
@@ -451,7 +451,17 @@ main{max-width:760px;margin:0 auto;padding:16px 14px}
         </div>
         <div class="field">
           <label>CATEGORÍA</label>
-          <select id="sim-cat" onchange="updateSimulation()">${catOptions('tecnologia')}</select>
+          <select id="sim-cat" onchange="updateSimulation()">
+            <option value="tecnologia" selected>💻 Tecnología</option>
+            <option value="ropa">👕 Ropa</option>
+            <option value="entretenim">🎬 Entretenimiento</option>
+            <option value="comida">🍔 Comida</option>
+            <option value="transporte">🚗 Transporte</option>
+            <option value="vivienda">🏠 Vivienda</option>
+            <option value="salud">💊 Salud</option>
+            <option value="educacion">📚 Educación</option>
+            <option value="otros">📦 Otros</option>
+          </select>
         </div>
       </div>
       <button class="btn-primary" style="width:100%;justify-content:center;margin-top:10px" onclick="convertSimToReal()">✨ Confirmar y Registrar Gasto Real</button>
@@ -504,7 +514,7 @@ const USER_ID = 'mi_usuario';
 
 let supabase = null;
 try {
-  if (window.supabase) {
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
 } catch(e) {
@@ -552,6 +562,18 @@ let data = {gastosFijos:[], gastosDiarios:[], gastosTarjeta:[], ingresosRegistra
 let currentMonth = new Date().toISOString().slice(0,7); // "YYYY-MM"
 let pieChart = null, barChart = null;
 
+function ensureData(d){
+  if (!d || typeof d !== 'object') d = {};
+  return {
+    gastosFijos: Array.isArray(d.gastosFijos) ? d.gastosFijos : [],
+    gastosDiarios: Array.isArray(d.gastosDiarios) ? d.gastosDiarios : [],
+    gastosTarjeta: Array.isArray(d.gastosTarjeta) ? d.gastosTarjeta : [],
+    ingresosRegistrados: Array.isArray(d.ingresosRegistrados) ? d.ingresosRegistrados : [],
+    atajosRapidos: Array.isArray(d.atajosRapidos) && d.atajosRapidos.length ? d.atajosRapidos : DEFAULT_ATAJOS,
+    ingresoMensual: +d.ingresoMensual || 0
+  };
+}
+
 function setCloudStatus(status, text){
   const dot = document.getElementById('cloud-dot');
   const span = document.getElementById('cloud-text');
@@ -563,14 +585,14 @@ function setCloudStatus(status, text){
 function loadLocal(){
   try{ 
     const r=localStorage.getItem(KEY); 
-    if(r) data={...data,...JSON.parse(r)}; 
-  }catch(e){}
-
-  data.gastosFijos = data.gastosFijos || [];
-  data.gastosDiarios = data.gastosDiarios || [];
-  data.gastosTarjeta = data.gastosTarjeta || [];
-  data.ingresosRegistrados = data.ingresosRegistrados || [];
-  data.atajosRapidos = (data.atajosRapidos && data.atajosRapidos.length) ? data.atajosRapidos : DEFAULT_ATAJOS;
+    if(r) {
+      data = ensureData(JSON.parse(r));
+    } else {
+      data = ensureData(data);
+    }
+  }catch(e){
+    data = ensureData(data);
+  }
 }
 
 async function loadFromCloud(){
@@ -584,20 +606,29 @@ async function loadFromCloud(){
       .maybeSingle();
 
     if(error){
-      console.log('Error al cargar de Supabase:', error);
+      console.log('Aviso Supabase:', error.message);
       setCloudStatus('offline', 'Local');
       return;
     }
 
     if(row && row.data && typeof row.data === 'object'){
-      // Mezclar datos remotos
-      data = { ...data, ...row.data };
-      saveLocal();
+      const remote = ensureData(row.data);
+      // Si la nube tiene datos, los usamos
+      const localHasData = (data.gastosFijos.length || data.gastosDiarios.length || data.ingresosRegistrados.length || data.gastosTarjeta.length);
+      const remoteHasData = (remote.gastosFijos.length || remote.gastosDiarios.length || remote.ingresosRegistrados.length || remote.gastosTarjeta.length);
+
+      if (remoteHasData || !localHasData) {
+        data = remote;
+        saveLocal();
+      } else if (localHasData && !remoteHasData) {
+        // Si local tenía datos pero nube estaba vacía, subimos los locales
+        saveToCloud();
+      }
       renderAll();
       setCloudStatus('online', 'En línea');
     } else {
-      // Si la base está vacía, subir los datos locales existentes
       saveToCloud();
+      setCloudStatus('online', 'En línea');
     }
   } catch(e) {
     console.log('Error conexión cloud:', e);
@@ -624,8 +655,8 @@ function saveToCloud(){
           updated_at: new Date().toISOString()
         });
       if(error){
-        console.log('Error guardando en Supabase:', error);
-        setCloudStatus('offline', 'Error nube');
+        console.log('Error guardando en Supabase:', error.message);
+        setCloudStatus('offline', 'Local');
       } else {
         setCloudStatus('online', 'En línea');
       }
@@ -645,25 +676,28 @@ function forceCloudSync(){
   loadFromCloud();
 }
 
-// Suscripción en tiempo real: si cambia en el celular, se actualiza en la PC sin refrescar
 function initRealtimeSync(){
   if(!supabase) return;
-  supabase
-    .channel('finanzas_realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'finanzas_data', filter: `id=eq.${USER_ID}` }, payload => {
-      if(payload.new && payload.new.data){
-        data = { ...data, ...payload.new.data };
-        saveLocal();
-        renderAll();
-        setCloudStatus('online', 'Sincronizado');
-      }
-    })
-    .subscribe();
+  try {
+    supabase
+      .channel('finanzas_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'finanzas_data', filter: `id=eq.${USER_ID}` }, payload => {
+        if(payload && payload.new && payload.new.data){
+          data = ensureData(payload.new.data);
+          saveLocal();
+          renderAll();
+          setCloudStatus('online', 'Sincronizado');
+        }
+      })
+      .subscribe();
+  } catch(e) {
+    console.log('Realtime error:', e);
+  }
 }
 
 function genId(){ return Math.random().toString(36).slice(2,10); }
 function pesos(n){
-  return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',minimumFractionDigits:0}).format(n);
+  return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',minimumFractionDigits:0}).format(n || 0);
 }
 function monthLabel(m){
   const [y,mo]=m.split('-');
@@ -690,7 +724,7 @@ function showTab(id,btn){
 function renderAtajos(){
   const el = document.getElementById('atajos-list');
   if(!el) return;
-  const list = data.atajosRapidos || DEFAULT_ATAJOS;
+  const list = Array.isArray(data.atajosRapidos) && data.atajosRapidos.length ? data.atajosRapidos : DEFAULT_ATAJOS;
   el.innerHTML = list.map(a => `
     <button class="atajo-chip" onclick="triggerAtajo('${a.id}')" title="Registrar ${a.label}">
       <span>${a.emoji||'🏷️'}</span>
@@ -705,7 +739,8 @@ function renderAtajos(){
 }
 
 function triggerAtajo(id){
-  const a = (data.atajosRapidos||DEFAULT_ATAJOS).find(x=>x.id===id);
+  const list = Array.isArray(data.atajosRapidos) ? data.atajosRapidos : DEFAULT_ATAJOS;
+  const a = list.find(x=>x.id===id);
   if(!a) return;
   openModal('diario', null, {desc: a.label, cat: a.categoria, monto: a.montoDefault||''});
   setTimeout(()=>{
@@ -722,7 +757,7 @@ function saveCustomAtajo(){
 
   if(!label){ alert('Ingresá el nombre del atajo'); return; }
 
-  data.atajosRapidos = data.atajosRapidos || [];
+  data.atajosRapidos = Array.isArray(data.atajosRapidos) ? data.atajosRapidos : [];
   data.atajosRapidos.push({
     id: genId(),
     label: label,
@@ -748,14 +783,19 @@ function updateSimulation(){
   const tipo = document.getElementById('sim-tipo')?.value || 'cuotas';
   const cuotas = tipo === 'cuotas' ? Math.max(1, +document.getElementById('sim-cuotas')?.value || 1) : 1;
 
+  const fijos = Array.isArray(data.gastosFijos) ? data.gastosFijos : [];
+  const diarios = Array.isArray(data.gastosDiarios) ? data.gastosDiarios : [];
+  const tarjeta = Array.isArray(data.gastosTarjeta) ? data.gastosTarjeta : [];
+  const ingresos = Array.isArray(data.ingresosRegistrados) ? data.ingresosRegistrados : [];
+
   // KPIs actuales
-  const fijosTotal = data.gastosFijos.filter(g=>g.pagado).reduce((a,g)=>a+g.monto,0);
-  const diariosTotal = data.gastosDiarios.filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
-  const tarjetaTotal = data.gastosTarjeta.filter(g=>g.ultimoPago===currentMonth).reduce((a,g)=>a+g.monto/g.cuotas,0);
+  const fijosTotal = fijos.filter(g=>g.pagado).reduce((a,g)=>a+(+g.monto||0),0);
+  const diariosTotal = diarios.filter(g=>g.fecha && g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+(+g.monto||0),0);
+  const tarjetaTotal = tarjeta.filter(g=>g.ultimoPago===currentMonth).reduce((a,g)=>a+((+g.monto||0)/(+g.cuotas||1)),0);
   const gastosActuales = fijosTotal + diariosTotal + tarjetaTotal;
-  const ingresosTotal = (data.ingresosRegistrados||[]).filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
+  const ingresosTotal = ingresos.filter(g=>g.fecha && g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+(+g.monto||0),0);
   const saldoActual = ingresosTotal - gastosActuales;
-  const deudaTarjetaActual = data.gastosTarjeta.reduce((a,g)=>{ const r=g.cuotas-g.cuotaActual+1; return a+(g.monto/g.cuotas)*r; },0);
+  const deudaTarjetaActual = tarjeta.reduce((a,g)=>{ const r=(+g.cuotas||1)-(+g.cuotaActual||1)+1; return a+((+g.monto||0)/(+g.cuotas||1))*r; },0);
 
   const cuotaMensualSim = tipo === 'cuotas' ? (monto / cuotas) : monto;
   const gastoExtraEsteMes = cuotaMensualSim;
@@ -778,7 +818,6 @@ function updateSimulation(){
   if(pctEl) pctEl.textContent = `${pctIngreso}% de tus ingresos`;
   if(deudaEl) deudaEl.textContent = pesos(deudaNueva);
 
-  // Veredicto
   if (!verdictBox) return;
 
   if (monto <= 0) {
@@ -1005,7 +1044,7 @@ function saveIngreso(){
   if (!m || m <= 0) { alert('Ingresá un monto válido mayor a 0'); return; }
   if (!fecha) { alert('Seleccioná una fecha'); return; }
 
-  data.ingresosRegistrados = data.ingresosRegistrados || [];
+  data.ingresosRegistrados = Array.isArray(data.ingresosRegistrados) ? data.ingresosRegistrados : [];
   data.ingresosRegistrados.push({
     id: genId(),
     descripcion: d,
@@ -1017,7 +1056,6 @@ function saveIngreso(){
   save(); 
   closeModal(); 
 
-  // Sincroniza con el mes del ingreso si es diferente al actual
   const mesIngreso = fecha.slice(0, 7);
   if (mesIngreso !== currentMonth) {
     currentMonth = mesIngreso;
@@ -1071,13 +1109,17 @@ function renderAll(){
 }
 
 function renderFijos(){
-  const sorted=[...data.gastosFijos].sort((a,b)=>a.dia-b.dia);
-  const total=sorted.reduce((a,g)=>a+g.monto,0);
-  const pagado=sorted.filter(g=>g.pagado).reduce((a,g)=>a+g.monto,0);
-  document.getElementById('fijos-sub').textContent=`${pesos(pagado)} pagado de ${pesos(total)}`;
-  document.getElementById('fijos-progress').style.width=total?(pagado/total*100)+'%':'0%';
+  const list = Array.isArray(data.gastosFijos) ? data.gastosFijos : [];
+  const sorted=[...list].sort((a,b)=>(+a.dia||1)-(+b.dia||1));
+  const total=sorted.reduce((a,g)=>a+(+g.monto||0),0);
+  const pagado=sorted.filter(g=>g.pagado).reduce((a,g)=>a+(+g.monto||0),0);
+  const subEl = document.getElementById('fijos-sub');
+  const progEl = document.getElementById('fijos-progress');
+  if(subEl) subEl.textContent=`${pesos(pagado)} pagado de ${pesos(total)}`;
+  if(progEl) progEl.style.width=total?(pagado/total*100)+'%':'0%';
 
   const el=document.getElementById('fijos-list');
+  if(!el) return;
   if(!sorted.length){ el.innerHTML='<div class="empty"><p>Sin gastos fijos.</p><p>Agregá alquiler, servicios, suscripciones…</p></div>'; return; }
   el.innerHTML=sorted.map(g=>{
     const c=cat(g.categoria);
@@ -1095,20 +1137,23 @@ function renderFijos(){
 }
 
 function renderDiarios(){
-  const mes=data.gastosDiarios.filter(g=>g.fecha.startsWith(currentMonth));
-  const total=mes.reduce((a,g)=>a+g.monto,0);
-  document.getElementById('diarios-sub').textContent=`Total ${monthLabel(currentMonth)}: ${pesos(total)}`;
+  const list = Array.isArray(data.gastosDiarios) ? data.gastosDiarios : [];
+  const mes=list.filter(g=>g.fecha && g.fecha.startsWith(currentMonth));
+  const total=mes.reduce((a,g)=>a+(+g.monto||0),0);
+  const subEl = document.getElementById('diarios-sub');
+  if(subEl) subEl.textContent=`Total ${monthLabel(currentMonth)}: ${pesos(total)}`;
 
   const grouped={};
   mes.forEach(g=>{ if(!grouped[g.fecha]) grouped[g.fecha]=[]; grouped[g.fecha].push(g); });
   const dates=Object.keys(grouped).sort((a,b)=>b.localeCompare(a));
 
   const el=document.getElementById('diarios-list');
+  if(!el) return;
   if(!dates.length){ el.innerHTML='<div class="empty"><p>Sin registros este mes.</p><p>Registrá tus gastos del día a día.</p></div>'; return; }
 
   el.innerHTML=dates.map(date=>{
     const items=grouped[date];
-    const dayTotal=items.reduce((a,g)=>a+g.monto,0);
+    const dayTotal=items.reduce((a,g)=>a+(+g.monto||0),0);
     const dLabel=new Date(date+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
     const safeId=date.replace(/-/g,'');
     return `<div class="date-group">
@@ -1141,20 +1186,26 @@ function renderDiarios(){
 }
 
 function renderTarjeta(){
-  const cuotaEste=data.gastosTarjeta.reduce((a,g)=>a+g.monto/g.cuotas,0);
-  const deudaTotal=data.gastosTarjeta.reduce((a,g)=>{ const r=g.cuotas-g.cuotaActual+1; return a+(g.monto/g.cuotas)*r; },0);
-  document.getElementById('tarjeta-sub').textContent=`Deuda total: ${pesos(deudaTotal)}`;
-  document.getElementById('cc-amount').textContent=pesos(cuotaEste);
-  document.getElementById('cc-count').textContent=`${data.gastosTarjeta.length} compra${data.gastosTarjeta.length!==1?'s':''} activa${data.gastosTarjeta.length!==1?'s':''}`;
+  const list = Array.isArray(data.gastosTarjeta) ? data.gastosTarjeta : [];
+  const cuotaEste=list.reduce((a,g)=>a+((+g.monto||0)/(+g.cuotas||1)),0);
+  const deudaTotal=list.reduce((a,g)=>{ const r=(+g.cuotas||1)-(+g.cuotaActual||1)+1; return a+(((+g.monto||0)/(+g.cuotas||1))*r); },0);
+  const subEl = document.getElementById('tarjeta-sub');
+  const amtEl = document.getElementById('cc-amount');
+  const cntEl = document.getElementById('cc-count');
+  if(subEl) subEl.textContent=`Deuda total: ${pesos(deudaTotal)}`;
+  if(amtEl) amtEl.textContent=pesos(cuotaEste);
+  if(cntEl) cntEl.textContent=`${list.length} compra${list.length!==1?'s':''} activa${list.length!==1?'s':''}`;
 
   const el=document.getElementById('tarjeta-list');
-  if(!data.gastosTarjeta.length){ el.innerHTML='<div class="empty"><p>Sin compras registradas.</p></div>'; return; }
-  el.innerHTML=data.gastosTarjeta.map(g=>{
+  if(!el) return;
+  if(!list.length){ el.innerHTML='<div class="empty"><p>Sin compras registradas.</p></div>'; return; }
+  el.innerHTML=list.map(g=>{
     const c=cat(g.categoria);
-    const cuotaAmt=g.monto/g.cuotas;
-    const pagadas=g.cuotaActual-1;
-    const restante=g.cuotas-pagadas;
-    const prog=(pagadas/g.cuotas*100).toFixed(0);
+    const cuotas = +g.cuotas || 1;
+    const cuotaAmt=(+g.monto||0)/cuotas;
+    const pagadas=(+g.cuotaActual||1)-1;
+    const restante=cuotas-pagadas;
+    const prog=(pagadas/cuotas*100).toFixed(0);
     return `<div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
       <div style="display:flex;align-items:center;gap:8px">
         <span class="cat-emoji">${c.emoji}</span>
@@ -1171,7 +1222,7 @@ function renderTarjeta(){
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="cuota-bar"><div class="cuota-fill" style="width:${prog}%"></div></div>
-        <span style="font-size:9px;color:var(--muted);white-space:nowrap">${pagadas}/${g.cuotas} pag.</span>
+        <span style="font-size:9px;color:var(--muted);white-space:nowrap">${pagadas}/${cuotas} pag.</span>
         <button onclick="pagarCuota('${g.id}')" style="background:${g.ultimoPago===currentMonth?'var(--accent2)':'none'};border:1px solid var(--accent2);color:${g.ultimoPago===currentMonth?'#0d0d0f':'var(--accent2)'};border-radius:4px;padding:0 7px;font-size:13px;line-height:18px;flex-shrink:0" title="${g.ultimoPago===currentMonth?'Cuota pagada este mes':'Registrar cuota pagada'}">${g.ultimoPago===currentMonth?'✓':'+'}</button>
       </div>
     </div>`;
@@ -1179,20 +1230,23 @@ function renderTarjeta(){
 }
 
 function renderIngresos(){
-  const mes=(data.ingresosRegistrados||[]).filter(g=>g.fecha.startsWith(currentMonth));
-  const total=mes.reduce((a,g)=>a+g.monto,0);
-  document.getElementById('ingresos-sub').textContent=`Total ${monthLabel(currentMonth)}: ${pesos(total)}`;
+  const list = Array.isArray(data.ingresosRegistrados) ? data.ingresosRegistrados : [];
+  const mes=list.filter(g=>g.fecha && g.fecha.startsWith(currentMonth));
+  const total=mes.reduce((a,g)=>a+(+g.monto||0),0);
+  const subEl = document.getElementById('ingresos-sub');
+  if(subEl) subEl.textContent=`Total ${monthLabel(currentMonth)}: ${pesos(total)}`;
 
   const grouped={};
   mes.forEach(g=>{ if(!grouped[g.fecha]) grouped[g.fecha]=[]; grouped[g.fecha].push(g); });
   const dates=Object.keys(grouped).sort((a,b)=>b.localeCompare(a));
 
   const el=document.getElementById('ingresos-list');
+  if(!el) return;
   if(!dates.length){ el.innerHTML='<div class="empty"><p>Sin ingresos este mes.</p><p>Registrá tus entradas de dinero.</p></div>'; return; }
 
   el.innerHTML=dates.map(date=>{
     const items=grouped[date];
-    const dayTotal=items.reduce((a,g)=>a+g.monto,0);
+    const dayTotal=items.reduce((a,g)=>a+(+g.monto||0),0);
     const dLabel=new Date(date+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
     const safeId='i'+date.replace(/-/g,'');
     return `<div class="date-group">
@@ -1225,73 +1279,96 @@ function renderIngresos(){
 }
 
 function renderDashboard(){
-  const fijosTotal=data.gastosFijos.filter(g=>g.pagado).reduce((a,g)=>a+g.monto,0);
-  const diariosTotal=data.gastosDiarios.filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
-  const tarjetaTotal=data.gastosTarjeta.filter(g=>g.ultimoPago===currentMonth).reduce((a,g)=>a+g.monto/g.cuotas,0);
+  const fijos = Array.isArray(data.gastosFijos) ? data.gastosFijos : [];
+  const diarios = Array.isArray(data.gastosDiarios) ? data.gastosDiarios : [];
+  const tarjeta = Array.isArray(data.gastosTarjeta) ? data.gastosTarjeta : [];
+  const ingresos = Array.isArray(data.ingresosRegistrados) ? data.ingresosRegistrados : [];
+
+  const fijosTotal=fijos.filter(g=>g.pagado).reduce((a,g)=>a+(+g.monto||0),0);
+  const diariosTotal=diarios.filter(g=>g.fecha && g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+(+g.monto||0),0);
+  const tarjetaTotal=tarjeta.filter(g=>g.ultimoPago===currentMonth).reduce((a,g)=>a+((+g.monto||0)/(+g.cuotas||1)),0);
   const totalGastos=fijosTotal+diariosTotal+tarjetaTotal;
-  const ingresosTotal=(data.ingresosRegistrados||[]).filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
+  const ingresosTotal=ingresos.filter(g=>g.fecha && g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+(+g.monto||0),0);
   const saldo=ingresosTotal-totalGastos;
   const pct=ingresosTotal?(totalGastos/ingresosTotal*100).toFixed(0)+'%':'—';
 
   // Cards
-  document.getElementById('dashboard-cards').innerHTML=`
-    <div class="stat-card">
-      <div class="stat-label">INGRESO</div>
-      <div class="stat-value" style="color:var(--accent2)">${pesos(ingresosTotal)}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">GASTOS</div>
-      <div class="stat-value" style="color:var(--danger)">${pesos(totalGastos)}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">SALDO</div>
-      <div class="stat-value" style="color:${saldo>=0?'var(--accent)':'var(--danger)'}">${pesos(saldo)}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">% GASTO</div>
-      <div class="stat-value" style="color:var(--warning)">${pct}</div>
-    </div>`;
+  const cardsEl = document.getElementById('dashboard-cards');
+  if(cardsEl) {
+    cardsEl.innerHTML=`
+      <div class="stat-card">
+        <div class="stat-label">INGRESO</div>
+        <div class="stat-value" style="color:var(--accent2)">${pesos(ingresosTotal)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">GASTOS</div>
+        <div class="stat-value" style="color:var(--danger)">${pesos(totalGastos)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">SALDO</div>
+        <div class="stat-value" style="color:${saldo>=0?'var(--accent)':'var(--danger)'}">${pesos(saldo)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">% GASTO</div>
+        <div class="stat-value" style="color:var(--warning)">${pct}</div>
+      </div>`;
+  }
 
   // Por categoría
   const bycat={};
-  data.gastosFijos.forEach(g=>{ bycat[g.categoria]=(bycat[g.categoria]||0)+g.monto; });
-  data.gastosDiarios.filter(g=>g.fecha.startsWith(currentMonth)).forEach(g=>{ bycat[g.categoria]=(bycat[g.categoria]||0)+g.monto; });
-  data.gastosTarjeta.forEach(g=>{ bycat[g.categoria]=(bycat[g.categoria]||0)+g.monto/g.cuotas; });
+  fijos.forEach(g=>{ bycat[g.categoria]=(bycat[g.categoria]||0)+(+g.monto||0); });
+  diarios.filter(g=>g.fecha && g.fecha.startsWith(currentMonth)).forEach(g=>{ bycat[g.categoria]=(bycat[g.categoria]||0)+(+g.monto||0); });
+  tarjeta.forEach(g=>{ bycat[g.categoria]=(bycat[g.categoria]||0)+((+g.monto||0)/(+g.cuotas||1)); });
 
   const pieData=CATS.filter(c=>bycat[c.id]).map(c=>({label:c.label,emoji:c.emoji,value:bycat[c.id],color:c.color})).sort((a,b)=>b.value-a.value);
 
   // Gráfico de torta
+  const pieCanvas = document.getElementById('pie-chart');
   if(pieChart) pieChart.destroy();
-  if(pieData.length){
-    pieChart=new Chart(document.getElementById('pie-chart'),{
+  if(pieCanvas && window.Chart && pieData.length){
+    pieChart=new Chart(pieCanvas,{
       type:'doughnut',
       data:{labels:pieData.map(d=>d.label),datasets:[{data:pieData.map(d=>d.value),backgroundColor:pieData.map(d=>d.color),borderWidth:2,borderColor:'#1c1c1f'}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+pesos(c.raw)}}},cutout:'55%'}
     });
   }
-  document.getElementById('pie-legend').innerHTML=pieData.map(d=>`
-    <div class="legend-row">
-      <div class="legend-left"><div class="legend-dot" style="background:${d.color}"></div><span class="legend-name">${d.emoji} ${d.label}</span></div>
-      <span class="legend-val">${pesos(d.value)}</span>
-    </div>`).join('');
+  const pieLegend = document.getElementById('pie-legend');
+  if(pieLegend){
+    pieLegend.innerHTML=pieData.map(d=>`
+      <div class="legend-row">
+        <div class="legend-left"><div class="legend-dot" style="background:${d.color}"></div><span class="legend-name">${d.emoji} ${d.label}</span></div>
+        <span class="legend-val">${pesos(d.value)}</span>
+      </div>`).join('');
+  }
 
   // Gráfico de barras
+  const barCanvas = document.getElementById('bar-chart');
   if(barChart) barChart.destroy();
-  const barData=[
-    {label:'Fijos',value:fijosTotal,color:'#c8f55a'},
-    {label:'Diarios',value:diariosTotal,color:'#5af5c8'},
-    {label:'Tarjeta',value:tarjetaTotal,color:'#c85af5'},
-  ];
-  barChart=new Chart(document.getElementById('bar-chart'),{
-    type:'bar',
-    data:{labels:barData.map(d=>d.label),datasets:[{data:barData.map(d=>d.value),backgroundColor:barData.map(d=>d.color),borderRadius:6,borderSkipped:false}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+pesos(c.raw)}}},scales:{x:{ticks:{color:'#6b6b72',font:{family:'DM Mono'}},grid:{display:false}},y:{display:false,grid:{display:false}}}}
-  });
-  document.getElementById('bar-legend').innerHTML=barData.map(d=>`
-    <div class="legend-row">
-      <div class="legend-left"><div class="legend-dot" style="background:${d.color}"></div><span class="legend-name">${d.label}</span></div>
-      <span class="legend-val">${pesos(d.value)}</span>
-    </div>`).join('');
+  if(barCanvas && window.Chart){
+    const barData=[
+      {label:'Fijos',value:fijosTotal,color:'#c8f55a'},
+      {label:'Diarios',value:diariosTotal,color:'#5af5c8'},
+      {label:'Tarjeta',value:tarjetaTotal,color:'#c85af5'},
+    ];
+    barChart=new Chart(barCanvas,{
+      type:'bar',
+      data:{labels:barData.map(d=>d.label),datasets:[{data:barData.map(d=>d.value),backgroundColor:barData.map(d=>d.color),borderRadius:6,borderSkipped:false}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+pesos(c.raw)}}},scales:{x:{ticks:{color:'#6b6b72',font:{family:'DM Mono'}},grid:{display:false}},y:{display:false,grid:{display:false}}}}
+    });
+  }
+  const barLegend = document.getElementById('bar-legend');
+  if(barLegend){
+    const barData=[
+      {label:'Fijos',value:fijosTotal,color:'#c8f55a'},
+      {label:'Diarios',value:diariosTotal,color:'#5af5c8'},
+      {label:'Tarjeta',value:tarjetaTotal,color:'#c85af5'},
+    ];
+    barLegend.innerHTML=barData.map(d=>`
+      <div class="legend-row">
+        <div class="legend-left"><div class="legend-dot" style="background:${d.color}"></div><span class="legend-name">${d.label}</span></div>
+        <span class="legend-val">${pesos(d.value)}</span>
+      </div>`).join('');
+  }
 }
 
 // ── EXPORTACIÓN PDF (OPTIMIZADA PARA IA Y USUARIO) ────────────────
@@ -1307,16 +1384,21 @@ function exportPDF(){
   const mesLabelText = monthLabel(currentMonth);
   const nowStr = new Date().toLocaleString('es-AR');
 
+  const fijos = Array.isArray(data.gastosFijos) ? data.gastosFijos : [];
+  const diarios = Array.isArray(data.gastosDiarios) ? data.gastosDiarios : [];
+  const tarjeta = Array.isArray(data.gastosTarjeta) ? data.gastosTarjeta : [];
+  const ingresos = Array.isArray(data.ingresosRegistrados) ? data.ingresosRegistrados : [];
+
   // Cálculos del mes
-  const fijosTotal = data.gastosFijos.reduce((a,g)=>a+g.monto,0);
-  const fijosPagados = data.gastosFijos.filter(g=>g.pagado).reduce((a,g)=>a+g.monto,0);
-  const diariosMes = data.gastosDiarios.filter(g=>g.fecha.startsWith(currentMonth));
-  const diariosTotal = diariosMes.reduce((a,g)=>a+g.monto,0);
-  const tarjetaCuotasMes = data.gastosTarjeta.reduce((a,g)=>a+g.monto/g.cuotas,0);
-  const tarjetaDeudaTotal = data.gastosTarjeta.reduce((a,g)=>{ const r=g.cuotas-g.cuotaActual+1; return a+(g.monto/g.cuotas)*r; },0);
+  const fijosTotal = fijos.reduce((a,g)=>a+(+g.monto||0),0);
+  const fijosPagados = fijos.filter(g=>g.pagado).reduce((a,g)=>a+(+g.monto||0),0);
+  const diariosMes = diarios.filter(g=>g.fecha && g.fecha.startsWith(currentMonth));
+  const diariosTotal = diariosMes.reduce((a,g)=>a+(+g.monto||0),0);
+  const tarjetaCuotasMes = tarjeta.reduce((a,g)=>a+((+g.monto||0)/(+g.cuotas||1)),0);
+  const tarjetaDeudaTotal = tarjeta.reduce((a,g)=>{ const r=(+g.cuotas||1)-(+g.cuotaActual||1)+1; return a+(((+g.monto||0)/(+g.cuotas||1))*r); },0);
   const totalGastos = fijosPagados + diariosTotal + tarjetaCuotasMes;
-  const ingresosMes = (data.ingresosRegistrados||[]).filter(g=>g.fecha.startsWith(currentMonth));
-  const ingresosTotal = ingresosMes.reduce((a,g)=>a+g.monto,0);
+  const ingresosMes = ingresos.filter(g=>g.fecha && g.fecha.startsWith(currentMonth));
+  const ingresosTotal = ingresosMes.reduce((a,g)=>a+(+g.monto||0),0);
   const saldo = ingresosTotal - totalGastos;
   const pct = ingresosTotal ? ((totalGastos / ingresosTotal) * 100).toFixed(1) + '%' : '0%';
 
@@ -1363,9 +1445,9 @@ function exportPDF(){
 
   // 2. Gastos por Categoría
   const bycat = {};
-  data.gastosFijos.forEach(g => { bycat[g.categoria] = (bycat[g.categoria] || 0) + g.monto; });
-  diariosMes.forEach(g => { bycat[g.categoria] = (bycat[g.categoria] || 0) + g.monto; });
-  data.gastosTarjeta.forEach(g => { bycat[g.categoria] = (bycat[g.categoria] || 0) + g.monto / g.cuotas; });
+  fijos.forEach(g => { bycat[g.categoria] = (bycat[g.categoria] || 0) + (+g.monto||0); });
+  diariosMes.forEach(g => { bycat[g.categoria] = (bycat[g.categoria] || 0) + (+g.monto||0); });
+  tarjeta.forEach(g => { bycat[g.categoria] = (bycat[g.categoria] || 0) + ((+g.monto||0) / (+g.cuotas||1)); });
 
   const catRows = CATS.filter(c => bycat[c.id]).map(c => {
     const amt = bycat[c.id];
@@ -1416,13 +1498,13 @@ function exportPDF(){
   }
 
   // 4. Gastos Fijos
-  if (data.gastosFijos.length) {
+  if (fijos.length) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(20, 20, 25);
     doc.text('3. Detalle de Gastos Fijos (Presupuesto Mensual)', 14, startY);
 
-    const fijosRows = data.gastosFijos.map(g => [
+    const fijosRows = fijos.map(g => [
       `Día ${g.dia}`,
       g.nombre,
       cat(g.categoria).label,
@@ -1468,21 +1550,22 @@ function exportPDF(){
   }
 
   // 6. Tarjetas de Crédito
-  if (data.gastosTarjeta.length) {
+  if (tarjeta.length) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(20, 20, 25);
     doc.text('5. Compras Activas con Tarjeta de Crédito (Cuotas)', 14, startY);
 
-    const ccRows = data.gastosTarjeta.map(g => {
-      const cuotaAmt = g.monto / g.cuotas;
-      const pagadas = g.cuotaActual - 1;
-      const restantes = g.cuotas - pagadas;
+    const ccRows = tarjeta.map(g => {
+      const cuotas = +g.cuotas || 1;
+      const cuotaAmt = (+g.monto||0) / cuotas;
+      const pagadas = (+g.cuotaActual||1) - 1;
+      const restantes = cuotas - pagadas;
       const deudaRestante = cuotaAmt * restantes;
       return [
         g.descripcion,
         cat(g.categoria).label,
-        `${pagadas}/${g.cuotas}`,
+        `${pagadas}/${cuotas}`,
         `${restantes} cuotas`,
         pesos(cuotaAmt),
         pesos(deudaRestante)
