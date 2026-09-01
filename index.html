@@ -23,156 +23,276 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0d0d0f;--surface:#141416;--surface2:#1c1c1f;--border:#2a2a2e;
+  --bg:#0d0d0f;--surface:#141416;--surface2:#1c1c1f;--surface3:#242429;--border:#2a2a2e;
   --accent:#c8f55a;--accent2:#5af5c8;--danger:#f55a5a;--warning:#f5c85a;--purple:#c85af5;
   --text:#f0ede8;--muted:#6b6b72;
 }
-body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding-bottom:20px}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'DM Mono',monospace;
+  min-height:100vh;
+  padding-bottom:30px;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+}
 .serif{font-family:'DM Serif Display',serif}
-input,select,textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-family:inherit;font-size:13px;width:100%;outline:none;transition:border-color .15s}
+
+/* Inputs & Form Controls (16px font-size prevents iOS zoom) */
+input,select,textarea{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  color:var(--text);
+  border-radius:8px;
+  padding:10px 12px;
+  font-family:inherit;
+  font-size:14px;
+  width:100%;
+  outline:none;
+  transition:border-color .15s;
+}
+@media (max-width: 600px) {
+  input,select,textarea{font-size:16px}
+}
 input:focus,select:focus{border-color:var(--accent)}
 select option{background:var(--surface2)}
-button{cursor:pointer;font-family:inherit;transition:opacity .15s, transform .1s}
+button{cursor:pointer;font-family:inherit;transition:opacity .15s, transform .1s;user-select:none}
 button:hover{opacity:.85}
-button:active{transform:scale(0.98)}
+button:active{transform:scale(0.97)}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:var(--surface)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
-/* LAYOUT */
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
-.header-left{display:flex;align-items:center;gap:12px}
-.logo{color:var(--accent);font-family:'DM Serif Display',serif;font-size:20px}
-.logo-sub{color:var(--muted);font-size:9px;letter-spacing:.12em}
-.header-right{display:flex;align-items:center;gap:10px}
-.btn-install{display:none;align-items:center;gap:5px;background:var(--surface2);color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:4px 9px;font-size:11px;font-weight:500}
-.btn-pdf{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#1f2d18,#192215);color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:500}
-.btn-pdf:hover{background:var(--accent);color:#0d0d0f}
+/* LAYOUT & HEADER */
+header{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:10px 16px;
+  position:sticky;
+  top:0;
+  z-index:50;
+}
+.header-container{
+  max-width:760px;
+  margin:0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.header-left{display:flex;align-items:center;gap:8px}
+.logo{color:var(--accent);font-family:'DM Serif Display',serif;font-size:20px;letter-spacing:-0.02em}
+.logo-sub{color:var(--muted);font-size:8px;letter-spacing:.12em}
+.header-right{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
 
-nav{background:var(--surface);border-bottom:1px solid var(--border);display:flex;padding:0 16px;position:sticky;top:57px;z-index:40;overflow-x:auto}
-.tab{display:flex;align-items:center;gap:5px;padding:12px 14px;font-size:12px;color:var(--muted);border:none;background:none;position:relative;white-space:nowrap}
+.btn-pdf{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  background:var(--surface2);
+  color:var(--accent);
+  border:1px solid var(--accent);
+  border-radius:6px;
+  padding:6px 9px;
+  font-size:11px;
+  font-weight:500;
+  white-space:nowrap;
+}
+.btn-pdf:hover{background:var(--accent);color:#0d0d0f}
+.btn-install{
+  display:none;
+  align-items:center;
+  gap:4px;
+  background:var(--surface2);
+  color:var(--accent2);
+  border:1px solid var(--accent2);
+  border-radius:6px;
+  padding:6px 8px;
+  font-size:11px;
+  font-weight:500;
+  white-space:nowrap;
+}
+
+.month-nav{display:flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px 6px}
+.month-btn{background:none;border:none;color:var(--muted);font-size:14px;padding:2px 6px}
+.month-btn:hover{color:var(--text)}
+.month-display{font-size:11px;color:var(--text);min-width:76px;text-align:center;text-transform:capitalize;font-weight:500}
+
+/* NAVIGATION */
+nav{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  position:sticky;
+  top:55px;
+  z-index:40;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.nav-container{
+  max-width:760px;
+  margin:0 auto;
+  display:flex;
+  padding:0 8px;
+}
+.tab{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:12px 12px;
+  font-size:12px;
+  color:var(--muted);
+  border:none;
+  background:none;
+  position:relative;
+  white-space:nowrap;
+  flex-shrink:0;
+}
 .tab.active{color:var(--accent)}
 .tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent);border-radius:2px 2px 0 0}
-main{max-width:760px;margin:0 auto;padding:24px 16px}
+
+/* MAIN CONTENT */
+main{max-width:760px;margin:0 auto;padding:16px 14px}
 .panel{display:none}.panel.active{display:block}
 
 /* COMPONENTS */
-.section-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px}
-.section-title{font-family:'DM Serif Display',serif;font-size:24px;margin-bottom:2px}
-.section-sub{color:var(--muted);font-size:12px}
-.btn-primary{background:var(--accent);color:#0d0d0f;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;flex-shrink:0}
-.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:12px}
-.btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);border-radius:8px;padding:9px 14px;font-size:12px}
+.section-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:10px}
+.section-title{font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:2px}
+.section-sub{color:var(--muted);font-size:11px}
+.btn-primary{background:var(--accent);color:#0d0d0f;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);border-radius:8px;padding:8px 12px;font-size:12px}
 
 /* ATAJOS RÁPIDOS */
-.atajos-section{margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
-.atajos-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.atajos-title{font-size:10px;color:var(--muted);letter-spacing:.1em}
-.atajos-scroll{display:flex;align-items:center;gap:8px;overflow-x:auto;padding-bottom:4px}
+.atajos-section{margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.atajos-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.atajos-title{font-size:9px;color:var(--muted);letter-spacing:.1em}
+.atajos-scroll{display:flex;align-items:center;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
 .atajo-chip{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 12px;font-size:12px;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s}
 .atajo-chip:hover{border-color:var(--accent);background:#222226;color:var(--accent)}
 .atajo-add{border-style:dashed;color:var(--muted)}
 .atajo-add:hover{border-color:var(--accent2);color:var(--accent2)}
 
-/* MODAL */
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:420px;animation:slideIn .2s ease}
-@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
-.modal-title{font-family:'DM Serif Display',serif;font-size:20px}
-.modal-close{background:none;border:none;color:var(--muted);font-size:18px;padding:4px 8px}
-.field{margin-bottom:12px}
-.field label{display:block;font-size:10px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.modal-actions{display:flex;gap:8px;margin-top:16px}
-.hint{font-size:12px;color:var(--accent);background:var(--surface2);border-radius:8px;padding:8px 12px;margin-top:8px}
+/* CARDS GRID */
+.cards-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+@media(max-width:600px){.cards-grid{grid-template-columns:repeat(2,1fr)}}
+.stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 10px;min-width:0}
+.stat-label{font-size:8.5px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat-value{font-family:'DM Serif Display',serif;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* PROGRESS */
-.progress-track{height:3px;background:var(--surface2);border-radius:2px;margin-bottom:20px;overflow:hidden}
-.progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .5s}
+/* CHARTS GRID */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.charts-grid{grid-template-columns:1fr}}
+.chart-box{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px}
+.chart-label{font-size:9.5px;color:var(--muted);letter-spacing:.08em;margin-bottom:12px}
+.legend-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:8px}
+.legend-left{display:flex;align-items:center;gap:6px;min-width:0}
+.legend-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+.legend-name{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.legend-val{font-size:11px;white-space:nowrap;font-weight:500}
 
-/* ROWS */
-.row{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:7px;animation:slideIn .2s ease}
+/* ROWS & ITEMS */
+.row{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:7px;animation:slideIn .2s ease;min-width:0}
 .row.dimmed{opacity:.5}
-.row-name{font-size:13px}
-.row-meta{font-size:10px;color:var(--muted)}
-.row-amount{font-size:13px;color:var(--accent);font-weight:500;margin-left:auto;white-space:nowrap}
-.row-del{background:none;border:none;color:var(--muted);font-size:13px;padding:4px;margin-left:6px}
+.row-name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-meta{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-amount{font-size:13px;color:var(--accent);font-weight:500;margin-left:auto;white-space:nowrap;padding-left:4px}
+.row-del{background:none;border:none;color:var(--muted);font-size:13px;padding:4px 6px;margin-left:4px}
 .row-del:hover{color:var(--danger)}
 .cat-emoji{font-size:16px;flex-shrink:0}
 .check-btn{background:none;border:none;font-size:18px;padding:0;flex-shrink:0}
 
 /* DATE GROUPS */
 .date-group{background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:7px;overflow:hidden}
-.date-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;user-select:none}
+.date-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;user-select:none;gap:8px}
 .date-hdr:hover{background:var(--border)}
 .date-body{border-top:1px solid var(--border)}
-.day-item{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
+.day-item{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--surface);border-bottom:1px solid var(--border);min-width:0}
 .day-item:last-child{border-bottom:none}
 
-/* CARDS */
-.cards-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
-@media(max-width:500px){.cards-grid{grid-template-columns:repeat(2,1fr)}}
-.stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px}
-.stat-label{font-size:9px;color:var(--muted);letter-spacing:.1em;margin-bottom:5px}
-.stat-value{font-family:'DM Serif Display',serif;font-size:18px}
-
-/* CHARTS */
-.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:500px){.charts-grid{grid-template-columns:1fr}}
-.chart-box{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px}
-.chart-label{font-size:10px;color:var(--muted);letter-spacing:.08em;margin-bottom:14px}
-.legend-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
-.legend-left{display:flex;align-items:center;gap:7px}
-.legend-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
-.legend-name{font-size:11px;color:var(--muted)}
-.legend-val{font-size:11px}
-
 /* TARJETA */
-.credit-card-box{background:linear-gradient(135deg,#1c1c1f,#252528);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px;position:relative;overflow:hidden}
-.cc-icon{position:absolute;right:14px;top:8px;font-size:60px;opacity:.05}
-.cc-sublabel{font-size:9px;color:var(--muted);letter-spacing:.1em;margin-bottom:4px}
-.cc-amount{font-family:'DM Serif Display',serif;font-size:28px;color:var(--accent)}
-.cc-count{font-size:11px;color:var(--muted);margin-top:6px}
-.cuota-bar{height:2px;background:var(--border);border-radius:2px;overflow:hidden;flex:1}
+.credit-card-box{background:linear-gradient(135deg,#1c1c1f,#252528);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden}
+.cc-icon{position:absolute;right:14px;top:8px;font-size:50px;opacity:.06}
+.cc-sublabel{font-size:8.5px;color:var(--muted);letter-spacing:.1em;margin-bottom:3px}
+.cc-amount{font-family:'DM Serif Display',serif;font-size:26px;color:var(--accent)}
+.cc-count{font-size:11px;color:var(--muted);margin-top:4px}
+.cuota-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;flex:1}
 .cuota-fill{height:100%;background:var(--accent2);border-radius:2px}
 
-/* EMPTY STATE */
-.empty{text-align:center;padding:48px 0;color:var(--muted)}
-.empty p:last-child{font-size:12px;margin-top:4px}
+/* SIMULADOR */
+.sim-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:650px){.sim-grid{grid-template-columns:1fr}}
+.sim-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px}
+.verdict-box{border-radius:10px;padding:12px 14px;margin-bottom:14px;border:1px solid transparent;transition:all .2s}
+.verdict-safe{background:rgba(200,245,90,0.08);border-color:var(--accent);color:var(--accent)}
+.verdict-warn{background:rgba(245,200,90,0.08);border-color:var(--warning);color:var(--warning)}
+.verdict-danger{background:rgba(245,90,90,0.08);border-color:var(--danger);color:var(--danger)}
+.verdict-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.verdict-desc{font-size:11px;color:var(--text);opacity:.9;line-height:1.4}
+.sim-metric{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:11px}
+.sim-metric:last-child{border-bottom:none}
 
-/* MONTH NAV */
-.month-nav{display:flex;align-items:center;gap:10px}
-.month-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:12px}
-.month-display{font-size:12px;color:var(--text);min-width:100px;text-align:center;text-transform:capitalize}
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:12px}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;animation:slideIn .2s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.modal-title{font-family:'DM Serif Display',serif;font-size:18px}
+.modal-close{background:none;border:none;color:var(--muted);font-size:18px;padding:4px 8px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:9.5px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modal-actions{display:flex;gap:8px;margin-top:16px}
+.hint{font-size:11px;color:var(--accent);background:var(--surface2);border-radius:8px;padding:8px 10px;margin-top:8px}
+
+/* PROGRESS */
+.progress-track{height:3px;background:var(--surface2);border-radius:2px;margin-bottom:16px;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .5s}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:36px 0;color:var(--muted)}
+.empty p:last-child{font-size:11px;margin-top:4px}
+
+@media(max-width:400px){
+  header{padding:8px 10px}
+  .logo{font-size:18px}
+  .btn-pdf{padding:4px 6px;font-size:10px}
+  .tab{padding:10px 8px;font-size:11px}
+  main{padding:12px 8px}
+}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="header-left">
-    <div>
-      <div class="logo">finanzas</div>
-      <div class="logo-sub">CONTROL PERSONAL</div>
+  <div class="header-container">
+    <div class="header-left">
+      <div>
+        <div class="logo">finanzas</div>
+        <div class="logo-sub">CONTROL PERSONAL</div>
+      </div>
     </div>
-  </div>
-  <div class="header-right">
-    <button class="btn-pdf" onclick="exportPDF()" title="Exportar reporte detallado en PDF optimizado para análisis con IA">📄 Exportar PDF</button>
-    <button id="btn-install" class="btn-install" onclick="installPWA()">📲 Instalar</button>
-    <div class="month-nav">
-      <button class="month-btn" onclick="changeMonth(-1)">‹</button>
-      <div class="month-display" id="month-display"></div>
-      <button class="month-btn" onclick="changeMonth(1)">›</button>
+    <div class="header-right">
+      <button class="btn-pdf" onclick="exportPDF()" title="Exportar reporte en PDF">📄 PDF (IA)</button>
+      <button id="btn-install" class="btn-install" onclick="installPWA()">📲 App</button>
+      <div class="month-nav">
+        <button class="month-btn" onclick="changeMonth(-1)">‹</button>
+        <div class="month-display" id="month-display"></div>
+        <button class="month-btn" onclick="changeMonth(1)">›</button>
+      </div>
     </div>
   </div>
 </header>
 
 <nav>
-  <button class="tab active" onclick="showTab('dashboard',this)">📊 Resumen</button>
-  <button class="tab" onclick="showTab('fijos',this)">🏠 Gastos Fijos</button>
-  <button class="tab" onclick="showTab('diarios',this)">📝 Registro Diario</button>
-  <button class="tab" onclick="showTab('tarjeta',this)">💳 Tarjeta</button>
-  <button class="tab" onclick="showTab('ingresos',this)">💰 Ingresos</button>
+  <div class="nav-container">
+    <button class="tab active" onclick="showTab('dashboard',this)">📊 Resumen</button>
+    <button class="tab" onclick="showTab('fijos',this)">🏠 Gastos Fijos</button>
+    <button class="tab" onclick="showTab('diarios',this)">📝 Diarios</button>
+    <button class="tab" onclick="showTab('tarjeta',this)">💳 Tarjeta</button>
+    <button class="tab" onclick="showTab('ingresos',this)">💰 Ingresos</button>
+    <button class="tab" onclick="showTab('simulador',this)">🔮 Simulador</button>
+  </div>
 </nav>
 
 <main>
@@ -181,7 +301,7 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
 <div class="atajos-section">
   <div class="atajos-hdr">
     <div class="atajos-title">⚡ GASTO RÁPIDO</div>
-    <button class="btn-ghost" style="padding:3px 8px;font-size:10px" onclick="openModal('atajo')">+ Atajo</button>
+    <button class="btn-ghost" style="padding:2px 6px;font-size:10px" onclick="openModal('atajo')">+ Atajo</button>
   </div>
   <div class="atajos-scroll" id="atajos-list"></div>
 </div>
@@ -193,7 +313,7 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
       <div class="section-title">Resumen</div>
       <div class="section-sub">Panorama general del mes</div>
     </div>
-    <button class="btn-primary" onclick="exportPDF()">📄 Descargar Reporte PDF</button>
+    <button class="btn-primary" onclick="exportPDF()">📄 Descargar PDF</button>
   </div>
   <div class="cards-grid" id="dashboard-cards"></div>
   <div class="charts-grid">
@@ -263,6 +383,79 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
     <button class="btn-primary" onclick="openModal('ingreso')">+ Agregar</button>
   </div>
   <div id="ingresos-list"></div>
+</div>
+
+<!-- SIMULADOR -->
+<div class="panel" id="tab-simulador">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Simulador de Compras</div>
+      <div class="section-sub">¿Vale la pena comprarlo? Evaluá el impacto antes de gastar</div>
+    </div>
+  </div>
+  <div class="sim-grid">
+    <div class="sim-card">
+      <div style="font-size:12px;font-weight:600;margin-bottom:12px;color:var(--accent)">DATOS DE LA COMPRA A SIMULAR</div>
+      <div class="field">
+        <label>CONCEPTO / PRODUCTO</label>
+        <input id="sim-desc" placeholder="Ej: Zapatillas, Notebook, Viaje..." oninput="updateSimulation()">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>MONTO TOTAL ($)</label>
+          <input id="sim-monto" type="number" placeholder="Ej: 80000" oninput="updateSimulation()">
+        </div>
+        <div class="field">
+          <label>FORMA DE PAGO</label>
+          <select id="sim-tipo" onchange="toggleSimCuotas(); updateSimulation();">
+            <option value="cuotas">En cuotas (Tarjeta)</option>
+            <option value="directo">1 Pago (Efectivo / Débito)</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2" id="sim-cuotas-row">
+        <div class="field">
+          <label>CANTIDAD DE CUOTAS</label>
+          <select id="sim-cuotas" onchange="updateSimulation()">
+            <option value="3">3 Cuotas</option>
+            <option value="6" selected>6 Cuotas</option>
+            <option value="12">12 Cuotas</option>
+            <option value="18">18 Cuotas</option>
+            <option value="24">24 Cuotas</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>CATEGORÍA</label>
+          <select id="sim-cat" onchange="updateSimulation()">${catOptions('tecnologia')}</select>
+        </div>
+      </div>
+      <button class="btn-primary" style="width:100%;justify-content:center;margin-top:10px" onclick="convertSimToReal()">✨ Confirmar y Registrar Gasto Real</button>
+    </div>
+
+    <div class="sim-card">
+      <div style="font-size:12px;font-weight:600;margin-bottom:12px;color:var(--accent2)">IMPACTO FINANCIERO ESTIMADO</div>
+      <div id="sim-verdict" class="verdict-box verdict-safe">
+        <div class="verdict-title">🟢 Ingresá un monto para simular</div>
+        <div class="verdict-desc">El simulador proyectará tu saldo y nivel de endeudamiento en los próximos meses.</div>
+      </div>
+      <div class="sim-metric">
+        <span style="color:var(--muted)">Cuota mensual nueva:</span>
+        <span id="sim-res-cuota" style="font-weight:500;color:var(--accent2)">$0</span>
+      </div>
+      <div class="sim-metric">
+        <span style="color:var(--muted)">Saldo disponible estimado este mes:</span>
+        <span id="sim-res-saldo" style="font-weight:500">$0</span>
+      </div>
+      <div class="sim-metric">
+        <span style="color:var(--muted)">% de tus ingresos que compromete:</span>
+        <span id="sim-res-pct" style="font-weight:500">0%</span>
+      </div>
+      <div class="sim-metric">
+        <span style="color:var(--muted)">Total deuda tarjeta (con esta compra):</span>
+        <span id="sim-res-deuda" style="font-weight:500">$0</span>
+      </div>
+    </div>
+  </div>
 </div>
 
 </main>
@@ -354,8 +547,10 @@ function changeMonth(d){
 function showTab(id,btn){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('tab-'+id).classList.add('active');
-  btn.classList.add('active');
+  const targetPanel = document.getElementById('tab-'+id);
+  if(targetPanel) targetPanel.classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(id==='simulador') updateSimulation();
 }
 
 // ── ATAJOS RÁPIDOS ────────────────────────────────────────────────
@@ -406,6 +601,117 @@ function saveCustomAtajo(){
   save();
   closeModal();
   renderAtajos();
+}
+
+// ── SIMULADOR DE COMPRAS ──────────────────────────────────────────
+function toggleSimCuotas(){
+  const tipo = document.getElementById('sim-tipo').value;
+  const row = document.getElementById('sim-cuotas-row');
+  if (row) row.style.display = tipo === 'cuotas' ? 'grid' : 'none';
+}
+
+function updateSimulation(){
+  const monto = +document.getElementById('sim-monto')?.value || 0;
+  const tipo = document.getElementById('sim-tipo')?.value || 'cuotas';
+  const cuotas = tipo === 'cuotas' ? Math.max(1, +document.getElementById('sim-cuotas')?.value || 1) : 1;
+
+  // KPIs actuales
+  const fijosTotal = data.gastosFijos.filter(g=>g.pagado).reduce((a,g)=>a+g.monto,0);
+  const diariosTotal = data.gastosDiarios.filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
+  const tarjetaTotal = data.gastosTarjeta.filter(g=>g.ultimoPago===currentMonth).reduce((a,g)=>a+g.monto/g.cuotas,0);
+  const gastosActuales = fijosTotal + diariosTotal + tarjetaTotal;
+  const ingresosTotal = (data.ingresosRegistrados||[]).filter(g=>g.fecha.startsWith(currentMonth)).reduce((a,g)=>a+g.monto,0);
+  const saldoActual = ingresosTotal - gastosActuales;
+  const deudaTarjetaActual = data.gastosTarjeta.reduce((a,g)=>{ const r=g.cuotas-g.cuotaActual+1; return a+(g.monto/g.cuotas)*r; },0);
+
+  const cuotaMensualSim = tipo === 'cuotas' ? (monto / cuotas) : monto;
+  const gastoExtraEsteMes = cuotaMensualSim;
+  const saldoProyectado = saldoActual - gastoExtraEsteMes;
+  const pctIngreso = ingresosTotal > 0 ? ((cuotaMensualSim / ingresosTotal) * 100).toFixed(1) : 0;
+  const deudaNueva = deudaTarjetaActual + (tipo === 'cuotas' ? monto : 0);
+
+  // Render métricas
+  const cuotaEl = document.getElementById('sim-res-cuota');
+  const saldoEl = document.getElementById('sim-res-saldo');
+  const pctEl = document.getElementById('sim-res-pct');
+  const deudaEl = document.getElementById('sim-res-deuda');
+  const verdictBox = document.getElementById('sim-verdict');
+
+  if(cuotaEl) cuotaEl.textContent = tipo === 'cuotas' ? `${pesos(cuotaMensualSim)} / mes (${cuotas} cuotas)` : `${pesos(monto)} (Pago único)`;
+  if(saldoEl) {
+    saldoEl.textContent = pesos(saldoProyectado);
+    saldoEl.style.color = saldoProyectado >= 0 ? 'var(--accent)' : 'var(--danger)';
+  }
+  if(pctEl) pctEl.textContent = `${pctIngreso}% de tus ingresos`;
+  if(deudaEl) deudaEl.textContent = pesos(deudaNueva);
+
+  // Veredicto
+  if (!verdictBox) return;
+
+  if (monto <= 0) {
+    verdictBox.className = 'verdict-box verdict-safe';
+    verdictBox.innerHTML = `
+      <div class="verdict-title">🟢 Ingresá un monto para simular</div>
+      <div class="verdict-desc">El simulador proyectará tu saldo y nivel de endeudamiento en los próximos meses.</div>`;
+    return;
+  }
+
+  if (saldoProyectado < 0) {
+    verdictBox.className = 'verdict-box verdict-danger';
+    verdictBox.innerHTML = `
+      <div class="verdict-title">🚨 Riesgo de Déficit Financiero</div>
+      <div class="verdict-desc">Esta compra dejaría tu saldo mensual en negativo (${pesos(saldoProyectado)}). Te recomendamos posponerla o buscar un plazo más largo.</div>`;
+  } else if (saldoProyectado < (ingresosTotal * 0.2)) {
+    verdictBox.className = 'verdict-box verdict-warn';
+    verdictBox.innerHTML = `
+      <div class="verdict-title">⚠️ Impacto Moderado (Margen Ajustado)</div>
+      <div class="verdict-desc">Podés afrontarla, pero te dejará con poco margen de ahorro este mes (${pesos(saldoProyectado)} restantes).</div>`;
+  } else {
+    verdictBox.className = 'verdict-box verdict-safe';
+    verdictBox.innerHTML = `
+      <div class="verdict-title">✅ Compra Segura y Sostenible</div>
+      <div class="verdict-desc">Tu presupuesto absorbe holgadamente esta compra manteniendo un saldo positivo de ${pesos(saldoProyectado)}.</div>`;
+  }
+}
+
+function convertSimToReal(){
+  const desc = document.getElementById('sim-desc').value.trim() || 'Compra Simulada';
+  const monto = +document.getElementById('sim-monto').value;
+  const tipo = document.getElementById('sim-tipo').value;
+  const cuotas = Math.max(1, +document.getElementById('sim-cuotas')?.value || 1);
+  const cat = document.getElementById('sim-cat').value || 'otros';
+  const today = new Date().toISOString().slice(0,10);
+
+  if(!monto || monto <= 0){
+    alert('Ingresá un monto válido para registrar');
+    return;
+  }
+
+  if(tipo === 'cuotas'){
+    data.gastosTarjeta.push({
+      id: genId(),
+      descripcion: desc,
+      monto: monto,
+      categoria: cat,
+      cuotas: cuotas,
+      cuotaActual: 1,
+      fecha: today
+    });
+    showTab('tarjeta');
+  } else {
+    data.gastosDiarios.push({
+      id: genId(),
+      descripcion: desc,
+      monto: monto,
+      categoria: cat,
+      fecha: today
+    });
+    showTab('diarios');
+  }
+
+  save();
+  renderAll();
+  alert(`✅ Gasto registrado con éxito: ${desc} (${pesos(monto)})`);
 }
 
 // ── MODAL ──────────────────────────────────────────────────────────
@@ -717,7 +1023,7 @@ function renderTarjeta(){
     const restante=g.cuotas-pagadas;
     const prog=(pagadas/g.cuotas*100).toFixed(0);
     return `<div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
-      <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px">
         <span class="cat-emoji">${c.emoji}</span>
         <div style="flex:1;min-width:0">
           <div class="row-name">${g.descripcion}</div>
@@ -725,9 +1031,9 @@ function renderTarjeta(){
         </div>
         <div style="text-align:right">
           <div style="font-size:12px;color:var(--accent2);font-weight:500">${pesos(cuotaAmt)}/mes</div>
-          <div style="font-size:10px;color:var(--muted)">${restante} cuota${restante!==1?'s':''} restante${restante!==1?'s':''}</div>
+          <div style="font-size:10px;color:var(--muted)">${restante} restante${restante!==1?'s':''}</div>
         </div>
-        <button class="btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openModal('tarjeta','${g.id}')">editar</button>
+        <button class="btn-ghost" style="padding:4px 8px;font-size:10px" onclick="openModal('tarjeta','${g.id}')">editar</button>
         <button class="row-del" onclick="deleteTarjeta('${g.id}')">✕</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -801,7 +1107,7 @@ function renderDashboard(){
       <div class="stat-value" style="color:var(--accent2)">${pesos(ingresosTotal)}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">TOTAL GASTOS</div>
+      <div class="stat-label">GASTOS</div>
       <div class="stat-value" style="color:var(--danger)">${pesos(totalGastos)}</div>
     </div>
     <div class="stat-card">
@@ -809,7 +1115,7 @@ function renderDashboard(){
       <div class="stat-value" style="color:${saldo>=0?'var(--accent)':'var(--danger)'}">${pesos(saldo)}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">% GASTADO</div>
+      <div class="stat-label">% GASTO</div>
       <div class="stat-value" style="color:var(--warning)">${pct}</div>
     </div>`;
 
