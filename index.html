@@ -454,15 +454,28 @@ main{
 .row-amount{font-size:15px;font-weight:600;color:#fff;margin-left:auto;white-space:nowrap;padding-left:8px}
 .row-amount.inc{color:var(--system-green)}
 .row-amount.exp{color:#fff}
-.row-del{
+.row-actions-group{
+  display:flex;
+  align-items:center;
+  gap:3px;
+  flex-shrink:0;
+}
+.row-edit, .row-del{
   background:transparent;
   border:none;
   color:var(--text-tertiary);
-  font-size:14px;
-  padding:6px 8px;
+  font-size:13px;
+  padding:5px 6px;
   border-radius:6px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  transition:all .15s ease;
+  line-height:1;
 }
-.row-del:hover{color:var(--system-red)}
+.row-edit:hover{color:var(--system-blue);background:rgba(10,132,255,0.12)}
+.row-del:hover{color:var(--system-red);background:rgba(255,69,58,0.12)}
 .check-btn{
   background:none;
   border:none;
@@ -1211,13 +1224,13 @@ function openModal(type, editId, prefill){
   modalType=type; 
   const m=document.getElementById('modal');
   const titles={
-    fijo:'Nuevo Gasto Fijo',
-    diario:'Nuevo Gasto Diario',
-    tarjeta:'Nueva Compra con Tarjeta',
-    ingreso:'Nuevo Ingreso',
-    atajo:'Nuevo Atajo'
+    fijo: editId ? 'Editar Gasto Fijo' : 'Nuevo Gasto Fijo',
+    diario: editId ? 'Editar Gasto Diario' : 'Nuevo Gasto Diario',
+    tarjeta: editId ? 'Editar Compra en Tarjeta' : 'Nueva Compra con Tarjeta',
+    ingreso: editId ? 'Editar Ingreso' : 'Nuevo Ingreso',
+    atajo: 'Nuevo Atajo'
   };
-  document.getElementById('modal-title').textContent = editId ? 'Editar Registro' : titles[type];
+  document.getElementById('modal-title').textContent = titles[type] || (editId ? 'Editar Registro' : 'Nuevo Registro');
   document.getElementById('modal-body').innerHTML = buildForm(type, editId, prefill);
   m.style.display='flex';
   if(type==='tarjeta') updateCuotaHint();
@@ -1231,48 +1244,60 @@ function catOptions(sel){
 
 function buildForm(type, editId, prefill){
   const today=new Date().toISOString().slice(0,10);
-  if(type==='fijo') return `
-    <div class="field"><label>Nombre del Gasto / Servicio</label><input id="f-nombre" placeholder="Ej: Alquiler, Internet, Gimnasio..."></div>
+  if(type==='fijo'){
+    const g=editId ? data.gastosFijos.find(x=>x.id===editId) : null;
+    return `
+    <div class="field"><label>Nombre del Gasto / Servicio</label><input id="f-nombre" placeholder="Ej: Alquiler, Internet, Gimnasio..." value="${g?g.nombre:''}"></div>
     <div class="grid2">
-      <div class="field"><label>Monto ($)</label><input id="f-monto" type="number" placeholder="0"></div>
-      <div class="field"><label>Día de Vencimiento</label><input id="f-dia" type="number" min="1" max="31" value="1"></div>
+      <div class="field"><label>Monto ($)</label><input id="f-monto" type="number" placeholder="0" value="${g?g.monto:''}"></div>
+      <div class="field"><label>Día de Vencimiento</label><input id="f-dia" type="number" min="1" max="31" value="${g?g.dia:'1'}"></div>
     </div>
-    <div class="field"><label>Categoría</label><select id="f-cat">${catOptions('vivienda')}</select></div>
+    <div class="field"><label>Categoría</label><select id="f-cat">${catOptions(g?g.categoria:'vivienda')}</select></div>
     <div class="modal-actions">
       <button class="btn-ghost" style="flex:1" onclick="closeModal()">Cancelar</button>
-      <button class="btn-primary" style="flex:1;justify-content:center" onclick="saveFijo()">Guardar</button>
+      <button class="btn-primary" style="flex:1;justify-content:center" onclick="saveFijo('${editId||''}')">Guardar</button>
     </div>`;
+  }
   if(type==='diario'){
-    const descVal = (prefill && prefill.desc) || '';
-    const catVal = (prefill && prefill.cat) || 'comida';
-    const montoVal = (prefill && prefill.monto) || '';
+    const g=editId ? data.gastosDiarios.find(x=>x.id===editId) : null;
+    const descVal = g ? g.descripcion : ((prefill && prefill.desc) || '');
+    const catVal = g ? g.categoria : ((prefill && prefill.cat) || 'comida');
+    const montoVal = g ? g.monto : ((prefill && prefill.monto) || '');
+    const fechaVal = g ? g.fecha : today;
     return `
     <div class="field"><label>Descripción</label><input id="d-desc" placeholder="Ej: Almuerzo, Uber, Farmacia..." value="${descVal}"></div>
     <div class="grid2">
       <div class="field"><label>Monto ($)</label><input id="d-monto" type="number" placeholder="0" value="${montoVal}"></div>
-      <div class="field"><label>Fecha</label><input id="d-fecha" type="date" value="${today}"></div>
+      <div class="field"><label>Fecha</label><input id="d-fecha" type="date" value="${fechaVal}"></div>
     </div>
     <div class="field"><label>Categoría</label><select id="d-cat">${catOptions(catVal)}</select></div>
     <div class="modal-actions">
       <button class="btn-ghost" style="flex:1" onclick="closeModal()">Cancelar</button>
-      <button class="btn-primary" style="flex:1;justify-content:center" onclick="saveDiario()">Guardar</button>
+      <button class="btn-primary" style="flex:1;justify-content:center" onclick="saveDiario('${editId||''}')">Guardar</button>
     </div>`;
   }
-  if(type==='ingreso') return `
-    <div class="field"><label>Descripción</label><input id="i-desc" placeholder="Ej: Sueldo mensual, Cobro freelance..."></div>
+  if(type==='ingreso'){
+    const g=editId ? (data.ingresosRegistrados||[]).find(x=>x.id===editId) : null;
+    const descVal = g ? g.descripcion : '';
+    const montoVal = g ? g.monto : '';
+    const fechaVal = g ? g.fecha : today;
+    const fuenteVal = g ? g.fuente : 'sueldo';
+    return `
+    <div class="field"><label>Descripción</label><input id="i-desc" placeholder="Ej: Sueldo mensual, Cobro freelance..." value="${descVal}"></div>
     <div class="grid2">
-      <div class="field"><label>Monto ($)</label><input id="i-monto" type="number" placeholder="0"></div>
-      <div class="field"><label>Fecha</label><input id="i-fecha" type="date" value="${today}"></div>
+      <div class="field"><label>Monto ($)</label><input id="i-monto" type="number" placeholder="0" value="${montoVal}"></div>
+      <div class="field"><label>Fecha</label><input id="i-fecha" type="date" value="${fechaVal}"></div>
     </div>
     <div class="field"><label>Origen</label>
       <select id="i-fuente">
-        ${FUENTES.map(f=>`<option value="${f.id}">${f.emoji} ${f.label}</option>`).join('')}
+        ${FUENTES.map(f=>`<option value="${f.id}"${f.id===fuenteVal?' selected':''}>${f.emoji} ${f.label}</option>`).join('')}
       </select>
     </div>
     <div class="modal-actions">
       <button class="btn-ghost" style="flex:1" onclick="closeModal()">Cancelar</button>
-      <button class="btn-primary" style="flex:1;justify-content:center" onclick="saveIngreso()">Guardar</button>
+      <button class="btn-primary" style="flex:1;justify-content:center" onclick="saveIngreso('${editId||''}')">Guardar</button>
     </div>`;
+  }
   if(type==='tarjeta'){
     const g=editId ? data.gastosTarjeta.find(x=>x.id===editId) : null;
     const pagadas=g ? g.cuotaActual-1 : 0;
@@ -1316,19 +1341,42 @@ function updateCuotaHint(){
 }
 
 // ── SAVE ACTIONS ──────────────────────────────────────────────────
-function saveFijo(){
+function saveFijo(editId){
   const n=document.getElementById('f-nombre').value.trim();
   const m=+document.getElementById('f-monto').value;
+  const dia=+document.getElementById('f-dia').value;
+  const cat=document.getElementById('f-cat').value;
   if(!n||!m){ alert('Completá nombre y monto'); return; }
-  data.gastosFijos.push({id:genId(),nombre:n,monto:m,categoria:document.getElementById('f-cat').value,dia:+document.getElementById('f-dia').value,pagado:false});
+  if(editId){
+    const g=data.gastosFijos.find(x=>x.id===editId);
+    if(g){
+      g.nombre=n;
+      g.monto=m;
+      g.categoria=cat;
+      g.dia=dia;
+    }
+  } else {
+    data.gastosFijos.push({id:genId(),nombre:n,monto:m,categoria:cat,dia:dia,pagado:false});
+  }
   save(); closeModal(); renderAll();
 }
-function saveDiario(){
+function saveDiario(editId){
   const d=document.getElementById('d-desc').value.trim();
   const m=+document.getElementById('d-monto').value;
   const fecha=document.getElementById('d-fecha').value;
+  const cat=document.getElementById('d-cat').value;
   if(!d||!m||!fecha){ alert('Completá descripción, monto y fecha'); return; }
-  data.gastosDiarios.push({id:genId(),descripcion:d,monto:m,categoria:document.getElementById('d-cat').value,fecha:fecha});
+  if(editId){
+    const g=data.gastosDiarios.find(x=>x.id===editId);
+    if(g){
+      g.descripcion=d;
+      g.monto=m;
+      g.categoria=cat;
+      g.fecha=fecha;
+    }
+  } else {
+    data.gastosDiarios.push({id:genId(),descripcion:d,monto:m,categoria:cat,fecha:fecha});
+  }
   save(); closeModal();
   const mesGasto = fecha.slice(0, 7);
   if(mesGasto !== currentMonth) currentMonth = mesGasto;
@@ -1353,7 +1401,7 @@ function saveTarjeta(editId){
   save(); closeModal(); renderAll();
 }
 
-function saveIngreso(){
+function saveIngreso(editId){
   const d = document.getElementById('i-desc').value.trim();
   const m = +document.getElementById('i-monto').value;
   const fecha = document.getElementById('i-fecha').value;
@@ -1364,13 +1412,23 @@ function saveIngreso(){
   if (!fecha) { alert('Seleccioná una fecha'); return; }
 
   data.ingresosRegistrados = Array.isArray(data.ingresosRegistrados) ? data.ingresosRegistrados : [];
-  data.ingresosRegistrados.push({
-    id: genId(),
-    descripcion: d,
-    monto: m,
-    fuente: fuente,
-    fecha: fecha
-  });
+  if(editId){
+    const g = data.ingresosRegistrados.find(x => x.id === editId);
+    if(g){
+      g.descripcion = d;
+      g.monto = m;
+      g.fuente = fuente;
+      g.fecha = fecha;
+    }
+  } else {
+    data.ingresosRegistrados.push({
+      id: genId(),
+      descripcion: d,
+      monto: m,
+      fuente: fuente,
+      fecha: fecha
+    });
+  }
 
   save(); 
   closeModal(); 
@@ -1451,7 +1509,14 @@ function renderFijos(){
         <div class="row-meta">Día ${g.dia} · ${c.label}</div>
       </div>
       <span class="row-amount exp">${pesos(g.monto)}</span>
-      <button class="row-del" onclick="deleteFijo('${g.id}')" title="Eliminar">✕</button>
+      <div class="row-actions-group">
+        <button class="row-edit" onclick="openModal('fijo','${g.id}')" title="Editar Gasto Fijo">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+        </button>
+        <button class="row-del" onclick="deleteFijo('${g.id}')" title="Eliminar">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1497,7 +1562,14 @@ function renderDiarios(){
               <div style="font-size:11.5px;color:var(--text-secondary)">${c.label}</div>
             </div>
             <span style="font-size:13.5px;font-weight:600;white-space:nowrap">${pesos(g.monto)}</span>
-            <button class="row-del" onclick="deleteDiario('${g.id}')">✕</button>
+            <div class="row-actions-group">
+              <button class="row-edit" onclick="openModal('diario','${g.id}')" title="Editar Gasto Diario">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+              </button>
+              <button class="row-del" onclick="deleteDiario('${g.id}')" title="Eliminar">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
           </div>`;
         }).join('')}
       </div>
@@ -1537,8 +1609,14 @@ function renderTarjeta(){
           <div style="font-size:13px;color:var(--system-blue);font-weight:600">${pesos(cuotaAmt)}/mes</div>
           <div style="font-size:11px;color:var(--text-secondary)">${restante} restante${restante!==1?'s':''}</div>
         </div>
-        <button class="btn-ghost" style="padding:4px 8px;font-size:11px" onclick="openModal('tarjeta','${g.id}')">editar</button>
-        <button class="row-del" onclick="deleteTarjeta('${g.id}')">✕</button>
+        <div class="row-actions-group">
+          <button class="row-edit" onclick="openModal('tarjeta','${g.id}')" title="Editar Compra en Tarjeta">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button class="row-del" onclick="deleteTarjeta('${g.id}')" title="Eliminar">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <div class="cuota-bar"><div class="cuota-fill" style="width:${prog}%"></div></div>
@@ -1590,7 +1668,14 @@ function renderIngresos(){
               <div style="font-size:11.5px;color:var(--text-secondary)">${f.label}</div>
             </div>
             <span style="font-size:13.5px;color:var(--system-green);font-weight:600;white-space:nowrap">+${pesos(g.monto)}</span>
-            <button class="row-del" onclick="deleteIngreso('${g.id}')">✕</button>
+            <div class="row-actions-group">
+              <button class="row-edit" onclick="openModal('ingreso','${g.id}')" title="Editar Ingreso">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+              </button>
+              <button class="row-del" onclick="deleteIngreso('${g.id}')" title="Eliminar">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
           </div>`;
         }).join('')}
       </div>
