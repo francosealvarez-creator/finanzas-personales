@@ -785,6 +785,7 @@ main{
             <option value="vivienda">🏠 Vivienda</option>
             <option value="salud">💊 Salud</option>
             <option value="educacion">📚 Educación</option>
+            <option value="viajes">✈️ Viajes & Turismo</option>
             <option value="otros">📦 Otros</option>
           </select>
         </div>
@@ -852,15 +853,16 @@ function getClient() {
 
 // ── CATEGORÍAS ────────────────────────────────────────────────────
 const CATS = [
-  {id:'vivienda',    label:'Vivienda',       emoji:'🏠', color:'#30d158'},
-  {id:'transporte',  label:'Transporte',     emoji:'🚗', color:'#0a84ff'},
-  {id:'comida',      label:'Comida & Super', emoji:'🍔', color:'#ff9f0a'},
-  {id:'salud',       label:'Salud',          emoji:'💊', color:'#64d2ff'},
-  {id:'entretenim',  label:'Entretenimiento',emoji:'🎬', color:'#bf5af2'},
-  {id:'ropa',        label:'Indumentaria',   emoji:'👕', color:'#ff375f'},
-  {id:'educacion',   label:'Educación',      emoji:'📚', color:'#5e5ce6'},
-  {id:'tecnologia',  label:'Tecnología',     emoji:'💻', color:'#ffd60a'},
-  {id:'otros',       label:'Otros',          emoji:'📦', color:'#8e8e93'},
+  {id:'vivienda',    label:'Vivienda',          emoji:'🏠', color:'#30d158'},
+  {id:'transporte',  label:'Transporte',        emoji:'🚗', color:'#0a84ff'},
+  {id:'comida',      label:'Comida & Super',    emoji:'🍔', color:'#ff9f0a'},
+  {id:'salud',       label:'Salud',             emoji:'💊', color:'#64d2ff'},
+  {id:'entretenim',  label:'Entretenimiento',   emoji:'🎬', color:'#bf5af2'},
+  {id:'ropa',        label:'Indumentaria',      emoji:'👕', color:'#ff375f'},
+  {id:'educacion',   label:'Educación',         emoji:'📚', color:'#5e5ce6'},
+  {id:'tecnologia',  label:'Tecnología',        emoji:'💻', color:'#ffd60a'},
+  {id:'viajes',      label:'Viajes & Turismo',  emoji:'✈️', color:'#00c7be'},
+  {id:'otros',       label:'Otros',             emoji:'📦', color:'#8e8e93'},
 ];
 const catMap = {};
 CATS.forEach(c => catMap[c.id] = c);
