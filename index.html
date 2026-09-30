@@ -2030,17 +2030,66 @@ function exportPDF(){
     startY = doc.lastAutoTable.finalY + 8;
   }
 
+  // ── SECCIÓN DE PROMPT ESTRUCTURADO PARA IA ───────────────────────
+  const savingRate = ingresosTotal ? (100 - parseFloat(pct)).toFixed(1) + '%' : '0%';
+  const promptLines = [
+    'Actúa como un Asesor Financiero Personal y Analista de Comportamiento de Gasto experto.',
+    '',
+    '🎯 OBJETIVO PRINCIPAL:',
+    `Analiza este reporte financiero de ${mesLabelText} (${currentMonth}) para detectar mis patrones de gasto, identificar fugas de dinero (gastos hormiga, compras impulsivas o sobrecostos fijos) y diseñar un plan concreto que me permita ahorrar más plata de forma sostenible.`,
+    '',
+    '📊 DATOS CLAVE DEL PERÍODO:',
+    `• Ingresos: ${pesos(ingresosTotal)} | Gastos Totales: ${pesos(totalGastos)} | Saldo Neto: ${pesos(saldo)} (Tasa de Ahorro: ${savingRate})`,
+    `• Gastos Fijos: ${pesos(fijosTotal)} | Gastos Diarios: ${pesos(diariosTotal)} | Cuotas Tarjeta: ${pesos(tarjetaCuotasMes)}`,
+    '',
+    '🔍 ÁREAS DE ANÁLISIS REQUERIDAS:',
+    '1. Patrones de Consumo y Fugas: Examina mis gastos diarios y categorías principales. ¿Qué hábitos o microgastos repetitivos están drenando mi presupuesto?',
+    '2. Estructura Fija vs. Variable: Evalúa si mis costos fijos y estilo de vida están equilibrados según la regla 50/30/20.',
+    '3. Endeudamiento en Cuotas: Analiza la carga de tarjetas y el impacto de la deuda diferida en mi flujo de fondos futuros.',
+    '4. Plan de Ahorro y Optimización: ¿Qué gastos específicos puedo eliminar, reducir o sustituir de inmediato para maximizar mi ahorro?',
+    '',
+    '📋 FORMATO DE RESPUESTA ESPERADO:',
+    '• Diagnóstico de Hábitos: 3 patrones o puntos ciegos clave detectados en mis transacciones.',
+    '• Fugas de Dinero & Ahorro Estimado: Lista de gastos prescindibles con montos aproximados a recuperar.',
+    '• Plan de Acción (3 a 5 Pasos): Medidas prácticas e inmediatas para aplicar este próximo mes.'
+  ];
+
+  // Si no queda espacio suficiente en la página actual, crear una nueva página
+  if (startY > 200) {
+    doc.addPage();
+    startY = 16;
+  }
+
+  doc.setFillColor(245, 247, 250);
+  doc.setDrawColor(218, 224, 233);
+  doc.roundedRect(14, startY, 182, 78, 3, 3, 'FD');
+
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(80, 80, 90);
-  doc.text('Instrucción para Inteligencia Artificial (ChatGPT, Claude, Gemini):', 14, startY);
-  
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(8);
-  doc.setTextColor(110, 110, 120);
-  const promptText = `Por favor analiza este informe financiero mensual de ${mesLabelText} (${currentMonth}). Evalúa la tasa de ahorro (${ingresosTotal ? (100 - parseFloat(pct)).toFixed(1) + '%' : '0%'}), la distribución de gastos por categoría, el nivel de endeudamiento en tarjetas y gastos fijos. Brinda 3 recomendaciones concretas de optimización financiera y reducción de gastos innecesarios.`;
-  const splitPrompt = doc.splitTextToSize(promptText, 182);
-  doc.text(splitPrompt, 14, startY + 4);
+  doc.setFontSize(9.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text('🤖 PROMPT PARA ANÁLISIS FINANCIERO CON IA (ChatGPT / Claude / Gemini)', 18, startY + 6.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+
+  let currentTextY = startY + 12;
+  promptLines.forEach(line => {
+    if (line === '') {
+      currentTextY += 1.8;
+    } else {
+      if (line.startsWith('🎯') || line.startsWith('📊') || line.startsWith('🔍') || line.startsWith('📋')) {
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42);
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(71, 85, 105);
+      }
+      const splitLine = doc.splitTextToSize(line, 174);
+      doc.text(splitLine, 18, currentTextY);
+      currentTextY += (splitLine.length * 3.2);
+    }
+  });
 
   const filename = `Reporte_Finanzas_${currentMonth}.pdf`;
   doc.save(filename);
